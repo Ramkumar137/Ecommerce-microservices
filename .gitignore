@@ -1,0 +1,51 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Django / Python caches
+*.log
+*.pot
+*.pyc
+.db.sqlite3
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+
+# Editor / IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage / test artifacts
+htmlcov/
+.pytest_cache/
+.coverage
+.coverage.*
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+package/
+**/package/
+
+# Local settings
+local_settings.py
+
+# AWS / deployment artifacts
+*.zip
+.lambda/
