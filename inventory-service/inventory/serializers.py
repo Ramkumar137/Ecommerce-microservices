@@ -42,8 +42,32 @@ class InventorySerializer(serializers.Serializer):
         return attrs
 
 
+# class UpdateStockSerializer(serializers.Serializer):
+#     stock = serializers.IntegerField(min_value=0)
+
 class UpdateStockSerializer(serializers.Serializer):
-    stock = serializers.IntegerField(min_value=0)
+
+    stock = serializers.IntegerField(
+        min_value=0,
+        required=True
+    )
+
+    reserved_stock = serializers.IntegerField(
+        min_value=0,
+        required=False
+    )
+
+    def validate(self, attrs):
+
+        stock = attrs["stock"]
+        reserved = attrs.get("reserved_stock", 0)
+
+        if reserved > stock:
+            raise serializers.ValidationError(
+                "Reserved stock cannot exceed total stock."
+            )
+
+        return attrs
 
 
 class ReserveStockSerializer(serializers.Serializer):

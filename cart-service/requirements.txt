@@ -3,3 +3,4 @@ djangorestframework
 boto3
 python-dotenv
 mangum
+requests

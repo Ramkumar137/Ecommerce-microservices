@@ -14,15 +14,14 @@ from .validators import (
 
 class CreatePaymentSerializer(serializers.Serializer):
 
-    order_id = serializers.CharField(max_length=100,validators=[validate_order_id])
-    user_id = serializers.CharField(max_length=100,validators=[validate_user_id])
-    amount = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.01")
+    order_id = serializers.CharField(
+        max_length=100,
+        validators=[validate_order_id]
     )
-    currency = serializers.CharField(default="INR",validators=[validate_currency])
-    payment_method = serializers.CharField(validators=[validate_payment_method])
+
+    payment_method = serializers.CharField(
+        validators=[validate_payment_method]
+    )
 
 
 class UpdatePaymentStatusSerializer(serializers.Serializer):

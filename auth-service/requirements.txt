@@ -1,0 +1,7 @@
+django
+djangorestframework
+boto3
+python-dotenv
+mangum
+bcrypt
+PyJWT

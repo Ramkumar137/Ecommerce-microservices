@@ -1,13 +1,12 @@
 import logging
 import os
 from datetime import datetime, timezone
-
 from boto3.dynamodb.conditions import Key
-
+from integrations.product_client import ProductClient
+from integrations.inventory_client import InventoryClient
 from utils.dynamodb import get_table
 
 logger = logging.getLogger(__name__)
-
 
 class CartService:
 
@@ -80,16 +79,33 @@ class CartService:
             }
         ).get("Item")
 
-        now = cls.timestamp()
+        final_quantity = quantity
 
         if existing:
+            final_quantity += existing["quantity"]
 
-            quantity += existing["quantity"]
+        # Validate product exists
+        product = ProductClient.get_product(product_id)
+
+        if not product:
+            raise ValueError("Product does not exist.")
+
+        # Validate inventory exists
+        inventory = InventoryClient.get_inventory(product_id)
+
+        if not inventory:
+            raise ValueError("Inventory not found.")
+
+        # Validate stock
+        if final_quantity > inventory["available_stock"]:
+            raise ValueError("Insufficient stock.")
+
+        now = cls.timestamp()
 
         item = {
             "user_id": user_id,
             "product_id": product_id,
-            "quantity": quantity,
+            "quantity": final_quantity,
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
         }
@@ -101,7 +117,6 @@ class CartService:
         )
 
         return item
-
     @classmethod
     def update_quantity(cls, user_id, product_id, quantity):
 

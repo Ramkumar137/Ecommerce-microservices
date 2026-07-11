@@ -3,24 +3,24 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import traceback
 from .serializers import (
     CreateOrderSerializer,
     UpdateOrderStatusSerializer,
 )
-
+from shared.authentication import JWTAuthentication
+from shared.permissions import IsCustomer, IsAdmin
 from .services import OrderService
 
 
 class OrderListCreateView(APIView):
-    """
-    GET  /api/v1/orders/
-    POST /api/v1/orders/
-    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
 
     def get(self, request):
         try:
-            orders = OrderService.get_all_orders()
+            orders = OrderService.get_orders_by_user(
+                request.user["user_id"]
+            )
             return Response(
                 orders,
                 status=status.HTTP_200_OK
@@ -40,11 +40,18 @@ class OrderListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
+            auth = request.headers.get("Authorization")
+            token = auth.split(" ")[1]
 
             order = OrderService.create_order(
-                user_id=serializer.validated_data["user_id"],
-                items=serializer.validated_data["items"]
+                user_id=request.user["user_id"],
+                items=serializer.validated_data["items"],
+                token=token
             )
+            # order = OrderService.create_order(
+            #     user_id=request.user["user_id"],
+            #     items=serializer.validated_data["items"]
+            # )
 
             return Response(
                 order,
@@ -58,7 +65,6 @@ class OrderListCreateView(APIView):
             )
 
         except Exception as e:
-            traceback.print_exc()
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -66,20 +72,22 @@ class OrderListCreateView(APIView):
 
 
 class OrderDetailView(APIView):
-    """
-    GET /api/v1/orders/<order_id>/
-    DELETE /api/v1/orders/<order_id>/
-    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
 
     def get(self, request, order_id):
-
         order = OrderService.get_order(order_id)
-
         if not order:
-
             return Response(
                 {"error": "Order not found"},
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+        if order["user_id"] != request.user["user_id"]:
+            return Response(
+                {"error": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
             )
 
         return Response(order)
@@ -87,12 +95,19 @@ class OrderDetailView(APIView):
     def delete(self, request, order_id):
 
         try:
+            order = OrderService.get_order(order_id)
+            if not order:
+                return Response(
+                    {"error": "Order not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            if order["user_id"] != request.user["user_id"]:
+                return Response(
+                    {"error": "Forbidden"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             OrderService.delete_order(order_id)
-
-            return Response(
-                status=status.HTTP_204_NO_CONTENT
-            )
 
         except ValueError as e:
             return Response(
@@ -107,31 +122,26 @@ class OrderDetailView(APIView):
             )
 
 class OrderStatusView(APIView):
-    """
-    PUT /api/v1/orders/<order_id>/status/
-    """
 
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdmin]
     def patch(self, request, order_id):
 
         serializer = UpdateOrderStatusSerializer(
             data=request.data
         )
-
         serializer.is_valid(raise_exception=True)
 
         try:
-
             order = OrderService.update_status(
                 order_id,
                 serializer.validated_data["status"]
             )
-
             if not order:
                 return Response(
                     {"error": "Order not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-
             return Response(
                 order,
                 status=status.HTTP_200_OK
@@ -151,13 +161,11 @@ class OrderStatusView(APIView):
 
 
 class UserOrdersView(APIView):
-    """
-    GET /api/v1/orders/user/<user_id>/
-    """
-
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
     def get(self, request, user_id):
 
-        orders = OrderService.get_orders_by_user(user_id)
+        orders = OrderService.get_orders_by_user(request.user["user_id"])
 
         return Response(
             orders,
@@ -166,10 +174,6 @@ class UserOrdersView(APIView):
 
 
 class HealthView(APIView):
-    """
-    GET /api/v1/orders/health/
-    """
-
     def get(self, request):
 
         return Response(

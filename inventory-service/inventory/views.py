@@ -3,12 +3,18 @@ import logging
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+
+from shared.authentication import JWTAuthentication
+from shared.permissions import (
+    IsCustomer, IsAdmin, IsAuthenticatedUser
+)
 
 from .serializers import (
     InventorySerializer,
-    UpdateStockSerializer,
     ReserveStockSerializer,
     ReleaseStockSerializer,
+    UpdateStockSerializer,
 )
 
 from .services import InventoryService
@@ -17,44 +23,67 @@ logger = logging.getLogger(__name__)
 
 
 class InventoryListView(APIView):
-    """List all inventory items or create a new inventory entry."""
+
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticatedUser()]
+        return [IsAdmin()]
 
     def get(self, request):
-        """Retrieve all inventory items with pagination support."""
         try:
             items = InventoryService.list_inventory()
             return Response(items, status=status.HTTP_200_OK)
-        except Exception as e:
+
+        except Exception:
             logger.exception("Failed to list inventory")
             return Response(
-                {"error": "Failed to fetch inventory"},
+                {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def post(self, request):
-        """Create a new inventory entry."""
+
         serializer = InventorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
+
             item = InventoryService.create_inventory(
                 serializer.validated_data
             )
-            logger.info(f"Created inventory for product {serializer.validated_data['product_id']}")
-            return Response(item, status=status.HTTP_201_CREATED)
+
+            return Response(
+                item,
+                status=status.HTTP_201_CREATED
+            )
+
         except ValueError as e:
-            logger.warning(f"Invalid inventory creation: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        except Exception:
+            logger.exception("Failed to create inventory")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class InventoryDetailView(APIView):
-    """Retrieve, update, or delete a specific inventory entry."""
+
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticatedUser()]
+        return [IsAdmin()]
 
     def get(self, request, product_id):
-        """Retrieve inventory for a specific product."""
+
         item = InventoryService.get_inventory(product_id)
 
         if not item:
@@ -63,110 +92,160 @@ class InventoryDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response(item, status=status.HTTP_200_OK)
+        return Response(item)
 
     def put(self, request, product_id):
-        """Update inventory for a specific product."""
-        serializer = InventorySerializer(data=request.data)
+
+        serializer = UpdateStockSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        item = InventoryService.update_inventory(
-            product_id,
-            serializer.validated_data,
-        )
+        try:
 
-        if not item:
-            return Response(
-                {"error": "Inventory not found"},
-                status=status.HTTP_404_NOT_FOUND,
+            item = InventoryService.update_inventory(
+                product_id,
+                serializer.validated_data,
             )
 
-        logger.info(f"Updated inventory for product {product_id}")
-        return Response(item, status=status.HTTP_200_OK)
+            if not item:
+                return Response(
+                    {"error": "Inventory not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            return Response(item)
+
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception:
+            logger.exception("Failed to update inventory")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def delete(self, request, product_id):
-        """Delete inventory for a specific product."""
-        deleted = InventoryService.delete_inventory(product_id)
 
-        if not deleted:
+        try:
+
+            deleted = InventoryService.delete_inventory(product_id)
+
+            if not deleted:
+                return Response(
+                    {"error": "Inventory not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             return Response(
-                {"error": "Inventory not found"},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_204_NO_CONTENT
             )
 
-        logger.info(f"Deleted inventory for product {product_id}")
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception:
+            logger.exception("Failed to delete inventory")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class ReserveStockView(APIView):
-    """Reserve stock for a product."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
 
     def patch(self, request, product_id):
-        """Reserve specified quantity of stock for a product."""
+
         serializer = ReserveStockSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
+
             item = InventoryService.reserve_stock(
                 product_id,
                 serializer.validated_data["quantity"]
             )
-            
+
             if not item:
                 return Response(
                     {"error": "Inventory not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
-            logger.info(f"Reserved {serializer.validated_data['quantity']} units for product {product_id}")
-            return Response(item, status=status.HTTP_200_OK)
+
+            return Response(
+                item,
+                status=status.HTTP_200_OK
+            )
+
         except ValueError as e:
-            logger.warning(f"Failed to reserve stock for {product_id}: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception:
+            logger.exception("Failed to reserve stock")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
 class ReleaseStockView(APIView):
-    """Release reserved stock for a product."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
 
     def patch(self, request, product_id):
-        """Release specified quantity of reserved stock for a product."""
+
         serializer = ReleaseStockSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
+
             item = InventoryService.release_stock(
                 product_id,
                 serializer.validated_data["quantity"]
             )
-            
+
             if not item:
                 return Response(
                     {"error": "Inventory not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
-            logger.info(f"Released {serializer.validated_data['quantity']} units for product {product_id}")
-            return Response(item, status=status.HTTP_200_OK)
+
+            return Response(
+                item,
+                status=status.HTTP_200_OK
+            )
+
         except ValueError as e:
-            logger.warning(f"Failed to release stock for {product_id}: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        except Exception:
+            logger.exception("Failed to release stock")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class HealthView(APIView):
-    """Health check endpoint for the inventory service."""
-
     def get(self, request):
-        """Return service health status."""
-        return Response(
-            {
+        return Response({
                 "status": "UP",
-                "service": "inventory"
+                "service": "inventory",
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )

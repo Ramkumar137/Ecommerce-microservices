@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from utils.dynamodb import get_table
+from integrations.order_client import OrderClient
 
 class PaymentService:
 
@@ -30,18 +31,27 @@ class PaymentService:
         return result
 
     @classmethod
-    def create_payment(
-        cls,
-        order_id,
-        user_id,
-        amount,
-        currency,
-        payment_method
-    ):
+    def create_payment(cls,order_id,user_id,payment_method,token):
 
         table = cls.get_table()
+
+        order = OrderClient.get_order(order_id, token)
+
+        if not order:
+            raise ValueError("Order not found.")
+
+        existing = cls.get_payment_by_order(order_id)
+
+        if existing:
+            raise ValueError(
+                "Payment already exists for this order."
+            )
+
+        amount = Decimal(str(order["total_amount"]))
+
         now = cls._timestamp()
-        amount = Decimal(str(amount))
+
+        currency = "INR"
 
         payment = {
             "payment_id": cls._generate_payment_id(),
@@ -54,13 +64,13 @@ class PaymentService:
             "transaction_id": "",
             "gateway": "MockGateway",
             "created_at": now,
-            "updated_at": now
+            "updated_at": now,
         }
 
         table.put_item(Item=payment)
 
         return cls._serialize_payment(payment)
-
+    
     @staticmethod
     def get_payment(payment_id):
         table = PaymentService.get_table()
@@ -81,19 +91,66 @@ class PaymentService:
             PaymentService._serialize_payment(item)
             for item in response.get("Items", [])
         ]
+    
+    @classmethod
+    def get_payments_by_user(cls, user_id):
 
-    @staticmethod
-    def get_payment_by_order(order_id):
+        table = cls.get_table()
 
-        table = PaymentService.get_table()
-        response = table.scan()
-        payments = response.get("Items", [])
+        items = []
+        last_key = None
 
-        for payment in payments:
+        while True:
+
+            kwargs = {}
+
+            if last_key:
+                kwargs["ExclusiveStartKey"] = last_key
+
+            response = table.scan(**kwargs)
+
+            items.extend(response.get("Items", []))
+
+            last_key = response.get("LastEvaluatedKey")
+
+            if not last_key:
+                break
+
+        return [
+            cls._serialize_payment(item)
+            for item in items
+            if item["user_id"] == user_id
+        ]
+
+    @classmethod
+    def get_payment_by_order(cls, order_id):
+
+        table = cls.get_table()
+
+        items = []
+        last_key = None
+
+        while True:
+
+            kwargs = {}
+
+            if last_key:
+                kwargs["ExclusiveStartKey"] = last_key
+
+            response = table.scan(**kwargs)
+
+            items.extend(response.get("Items", []))
+
+            last_key = response.get("LastEvaluatedKey")
+
+            if not last_key:
+                break
+
+        for payment in items:
             if payment["order_id"] == order_id:
-                return payment
+                return cls._serialize_payment(payment)
 
-        return PaymentService._serialize_payment(payment)
+        return None
 
     @classmethod
     def update_status(
@@ -102,12 +159,31 @@ class PaymentService:
         status,
         transaction_id=""
     ):
+
         table = cls.get_table()
+
         payment = cls.get_payment(payment_id)
-        now = cls._timestamp()
 
         if not payment:
             raise ValueError("Payment not found.")
+
+        VALID_TRANSITIONS = {
+            "PENDING": ["SUCCESS", "FAILED", "CANCELLED"],
+            "SUCCESS": ["REFUNDED"],
+            "FAILED": [],
+            "REFUNDED": [],
+            "CANCELLED": [],
+        }
+
+        current_status = payment["status"]
+
+        if status not in VALID_TRANSITIONS[current_status]:
+            raise ValueError(
+                f"Cannot change status from "
+                f"{current_status} to {status}"
+            )
+
+        now = cls._timestamp()
 
         table.update_item(
             Key={
@@ -126,7 +202,6 @@ class PaymentService:
                 ":txn": transaction_id,
                 ":updated": now
             }
-
         )
 
         payment["status"] = status

@@ -45,6 +45,7 @@ package/
 
 # Local settings
 local_settings.py
+main.py
 
 # AWS / deployment artifacts
 *.zip

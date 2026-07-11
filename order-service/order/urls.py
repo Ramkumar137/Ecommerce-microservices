@@ -13,7 +13,6 @@ from .views import (
 urlpatterns = [
     path("health/",HealthView.as_view(),name="order-health",),
     path("",OrderListCreateView.as_view(),name="order-list-create",),
-    path("user/<str:user_id>/",UserOrdersView.as_view(),name="user-orders",),
     path("<str:order_id>/",OrderDetailView.as_view(),name="order-detail",),
     path("<str:order_id>/status/",OrderStatusView.as_view(),name="order-status",),
 ]

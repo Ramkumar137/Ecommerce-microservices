@@ -1,6 +1,8 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from shared.authentication import JWTAuthentication
+from shared.permissions import IsCustomer,IsAdmin
 
 from .serializers import (
     AddItemSerializer,
@@ -10,10 +12,9 @@ from .services import CartService
 
 
 class CartListView(APIView):
-    """
-    GET /api/v1/cart/
-    Admin endpoint - List all cart items.
-    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         items = CartService.list_all_carts()
@@ -25,14 +26,13 @@ class CartListView(APIView):
 
 
 class CartDetailView(APIView):
-    """
-    GET /api/v1/cart/<user_id>/
-    Return all items for a user's cart.
-    """
 
-    def get(self, request, user_id):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
+    
+    def get(self, request):
 
-        items = CartService.get_cart(user_id)
+        items = CartService.get_cart(request.user["user_id"])
 
         return Response(
             items,
@@ -41,12 +41,11 @@ class CartDetailView(APIView):
 
 
 class CartItemView(APIView):
-    """
-    POST /api/v1/cart/<user_id>/items/
-    Add product to cart.
-    """
 
-    def post(self, request, user_id):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
+
+    def post(self, request):
 
         serializer = AddItemSerializer(
             data=request.data
@@ -57,7 +56,7 @@ class CartItemView(APIView):
         try:
 
             item = CartService.add_item(
-                user_id=user_id,
+                user_id=request.user["user_id"],
                 product_id=serializer.validated_data["product_id"],
                 quantity=serializer.validated_data["quantity"],
             )
@@ -68,9 +67,16 @@ class CartItemView(APIView):
             )
 
         except ValueError as e:
+            message = str(e)
+
+            if "not found" in message.lower():
+                return Response(
+                    {"error": message},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             return Response(
-                {"error": str(e)},
+                {"error": message},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -83,12 +89,11 @@ class CartItemView(APIView):
 
 
 class CartItemUpdateView(APIView):
-    """
-    PUT /api/v1/cart/<user_id>/items/<product_id>/
-    Update quantity.
-    """
 
-    def put(self, request, user_id, product_id):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
+
+    def put(self, request, product_id):
 
         serializer = UpdateQuantitySerializer(
             data=request.data
@@ -99,7 +104,7 @@ class CartItemUpdateView(APIView):
         try:
 
             item = CartService.update_quantity(
-                user_id=user_id,
+                user_id=request.user["user_id"],
                 product_id=product_id,
                 quantity=serializer.validated_data["quantity"],
             )
@@ -110,10 +115,17 @@ class CartItemUpdateView(APIView):
             )
 
         except ValueError as e:
+            message = str(e)
+
+            if "not found" in message.lower():
+                return Response(
+                    {"error": message},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             return Response(
-                {"error": str(e)},
-                status=status.HTTP_404_NOT_FOUND,
+                {"error": message},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Exception:
@@ -123,16 +135,10 @@ class CartItemUpdateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
-class CartItemDeleteView(APIView):
-    """
-    DELETE /api/v1/cart/<user_id>/items/<product_id>/
-    Remove a single product from the cart.
-    """
-
-    def delete(self, request, user_id, product_id):
+    def delete(self, request, product_id):
 
         try:
+            user_id = request.user["user_id"]
 
             CartService.remove_item(
                 user_id=user_id,
@@ -144,10 +150,17 @@ class CartItemDeleteView(APIView):
             )
 
         except ValueError as e:
+            message = str(e)
+
+            if "not found" in message.lower():
+                return Response(
+                    {"error": message},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             return Response(
-                {"error": str(e)},
-                status=status.HTTP_404_NOT_FOUND,
+                {"error": message},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Exception:
@@ -159,16 +172,14 @@ class CartItemDeleteView(APIView):
 
 
 class CartClearView(APIView):
-    """
-    DELETE /api/v1/cart/<user_id>/
-    Remove all items from the user's cart.
-    """
 
-    def delete(self, request, user_id):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsCustomer]
+
+    def delete(self, request):
 
         try:
-
-            CartService.clear_cart(user_id)
+            CartService.clear_cart(request.user["user_id"])
 
             return Response(
                 status=status.HTTP_204_NO_CONTENT,
@@ -183,10 +194,6 @@ class CartClearView(APIView):
 
 
 class HealthView(APIView):
-    """
-    GET /api/v1/cart/health/
-    """
-
     def get(self, request):
 
         return Response(

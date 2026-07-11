@@ -122,3 +122,14 @@ STATIC_URL = 'static/'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 CORS_ALLOW_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "origin", "x-requested-with"]
+
+import os
+from datetime import timedelta
+from dotenv import load_dotenv
+load_dotenv()
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+
+ACCESS_TOKEN_EXPIRE = timedelta(minutes=30)
+REFRESH_TOKEN_EXPIRE = timedelta(days=7)

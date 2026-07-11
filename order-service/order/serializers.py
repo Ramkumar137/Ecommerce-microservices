@@ -20,31 +20,13 @@ class OrderItemSerializer(serializers.Serializer):
         max_length=100,
         validators=[validate_product_id]
     )
-
-    product_name = serializers.CharField(
-        max_length=255
-    )
-
-    unit_price = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.01"),
-    )
-
+    
     quantity = serializers.IntegerField(
         validators=[validate_quantity]
     )
 
 
 class CreateOrderSerializer(serializers.Serializer):
-    """
-    Create Order Serializer
-    """
-
-    user_id = serializers.CharField(
-        max_length=100,
-        validators=[validate_user_id]
-    )
 
     items = OrderItemSerializer(
         many=True
