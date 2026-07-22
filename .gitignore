@@ -50,3 +50,14 @@ main.py
 # AWS / deployment artifacts
 *.zip
 .lambda/
+
+node_modules/
+
+dist/
+build/
+.out/
+coverage/
+
+zyx_cors_pack/
+
+main.py
