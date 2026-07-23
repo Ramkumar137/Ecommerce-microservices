@@ -1,6 +1,24 @@
 import type { ReactNode } from "react";
-// Placeholder route guard for authenticated users.
-// Post-export, wrap children with react-router-dom's <Navigate /> when unauthenticated.
+import { Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/context/auth-context";
+
 export function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-xs font-medium text-muted-foreground">Authenticating session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
   return <>{children}</>;
 }

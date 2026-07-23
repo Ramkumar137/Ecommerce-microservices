@@ -1,65 +1,65 @@
-import { createContext, useContext, useEffect, useState, ReactNode, } from "react";
-
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import AuthService from "@/services/auth.service";
-import { LoginRequest, RegisterRequest } from "@/api/auth";
-import { User } from "@/types/auth";
+import type { LoginRequest, RegisterRequest, User, UpdateProfileRequest } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<User>;
+  register: (data: RegisterRequest) => Promise<User>;
   logout: () => void;
-  updateUser: (user: User) => void;
+  updateUserProfile: (data: UpdateProfileRequest) => Promise<User>;
   isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>(
-  {} as AuthContextType
-);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-export function AuthProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // App load initialization: Token refresh & session verification
   useEffect(() => {
-    const currentUser = AuthService.getCurrentUser();
-
-    if (currentUser) {
-      setUser(currentUser);
+    async function initAuth() {
+      try {
+        const userSession = await AuthService.initializeAuthSession();
+        setUser(userSession);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     }
-
-    setLoading(false);
+    initAuth();
   }, []);
 
-  const login = async (data: LoginRequest) => {
+  const login = async (data: LoginRequest): Promise<User> => {
     const result = await AuthService.login(data);
     setUser(result.user);
+    return result.user;
   };
 
-  const register = async (data: RegisterRequest) => {
-  return await AuthService.register(data);
-};
+  const register = async (data: RegisterRequest): Promise<User> => {
+    return await AuthService.register(data);
+  };
 
   const logout = () => {
     AuthService.logout();
     setUser(null);
-
-    window.location.href = "/";
+    window.location.href = "/auth/login";
   };
 
-  function updateUser(updatedUser: User) {
-    setUser(updatedUser);
+  const updateUserProfile = async (data: UpdateProfileRequest): Promise<User> => {
+    const updated = await AuthService.updateProfile(data);
+    setUser(updated);
+    return updated;
+  };
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(updatedUser)
-    );
-  }
+  const isAdmin =
+    !!user &&
+    typeof user.role === "string" &&
+    (user.role.toUpperCase() === "ADMIN" || user.role.toUpperCase() === "ADMINISTRATOR");
 
   return (
     <AuthContext.Provider
@@ -69,8 +69,9 @@ export function AuthProvider({
         login,
         register,
         logout,
-        updateUser,
-        isAuthenticated: !!user,
+        updateUserProfile,
+        isAuthenticated: !!user && user.is_active !== false,
+        isAdmin,
       }}
     >
       {children}

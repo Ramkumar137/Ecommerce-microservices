@@ -1,6 +1,9 @@
-export * from "./auth";
-export * from "./products";
-// export * from "./inventory";
-// export * from "./cart";
-export * from "./orders";
-// export * from "./payment";
+export { authApi } from "./auth";
+export { productsApi } from "./products";
+export { inventoryApi } from "./inventory";
+export { cartApi } from "./cart";
+export { ordersApi } from "./orders";
+export { paymentsApi } from "./payments";
+export { uploadImage } from "./upload";
+export { default as apiClient } from "./client";
+export { default as publicClient } from "./publicClient";

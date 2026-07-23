@@ -52,18 +52,12 @@ function RegisterPage() {
         to: "/auth/login",
       });
     } catch (error: any) {
-    console.log("Register Error:", error);
-    console.log("Response:", error.response);
-    console.log("Data:", error.response?.data);
-
-    toast.error(
-      error.response?.data?.message ||
-      JSON.stringify(error.response?.data) ||
-      error.message ||
-      "Registration failed."
-    );
-  }
-    finally {
+      toast.error(
+        error.response?.data?.message ||
+        error.message ||
+        "Registration failed."
+      );
+    } finally {
       setLoading(false);
     }
   };

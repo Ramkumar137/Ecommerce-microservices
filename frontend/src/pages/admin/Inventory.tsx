@@ -1,16 +1,88 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { products } from "@/lib/mock-data";
+import { inventoryApi } from "@/api/inventory";
+import { productsApi } from "@/api/products";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import type { InventoryItem } from "@/types/inventory";
+import type { Product } from "@/types/product";
 
 function AdminInventory() {
   const [filter, setFilter] = useState("all");
-  const filtered = products.filter((p) => {
-    if (filter === "out") return p.stock === 0;
-    if (filter === "low") return p.stock > 0 && p.stock < 15;
-    if (filter === "ok") return p.stock >= 15;
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [productsMap, setProductsMap] = useState<Record<string, Product>>({});
+  const [loading, setLoading] = useState(true);
+
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [stockForm, setStockForm] = useState({ available_stock: 0, total_stock: 0 });
+  const [updating, setUpdating] = useState(false);
+
+  useEffect(() => {
+    loadInventoryData();
+  }, []);
+
+  async function loadInventoryData() {
+    try {
+      setLoading(true);
+      const [invData, prodData] = await Promise.all([
+        inventoryApi.list().catch(() => []),
+        productsApi.list().catch(() => []),
+      ]);
+
+      setInventory(Array.isArray(invData) ? invData : []);
+
+      const pMap: Record<string, Product> = {};
+      if (Array.isArray(prodData)) {
+        prodData.forEach((p) => {
+          pMap[p.product_id] = p;
+        });
+      }
+      setProductsMap(pMap);
+    } catch {
+      toast.error("Failed to load inventory data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleEditClick(item: InventoryItem) {
+    setSelectedItem(item);
+    setStockForm({
+      available_stock: item.available_stock,
+      total_stock: item.total_stock,
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSaveStock() {
+    if (!selectedItem) return;
+    try {
+      setUpdating(true);
+      await inventoryApi.update(selectedItem.product_id, {
+        available_stock: Number(stockForm.available_stock),
+        total_stock: Number(stockForm.total_stock),
+      });
+      toast.success("Stock level updated");
+      setEditOpen(false);
+      loadInventoryData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to update stock");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  const filtered = inventory.filter((item) => {
+    if (filter === "out") return item.available_stock === 0;
+    if (filter === "low") return item.available_stock > 0 && item.available_stock < 15;
+    if (filter === "ok") return item.available_stock >= 15;
     return true;
   });
 
@@ -18,10 +90,12 @@ function AdminInventory() {
     <>
       <PageHeader
         title="Inventory"
-        description={`${filtered.length} items`}
+        description={`${filtered.length} tracked items`}
         actions={
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All items</SelectItem>
               <SelectItem value="ok">In stock</SelectItem>
@@ -32,43 +106,126 @@ function AdminInventory() {
         }
       />
 
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Inventory Stock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Product ID</Label>
+              <Input value={selectedItem?.product_id || ""} disabled className="mt-1" />
+            </div>
+            <div>
+              <Label>Available Stock</Label>
+              <Input
+                type="number"
+                value={stockForm.available_stock}
+                onChange={(e) =>
+                  setStockForm({ ...stockForm, available_stock: Number(e.target.value) })
+                }
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Total Stock</Label>
+              <Input
+                type="number"
+                value={stockForm.total_stock}
+                onChange={(e) =>
+                  setStockForm({ ...stockForm, total_stock: Number(e.target.value) })
+                }
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveStock} disabled={updating}>
+              {updating ? "Saving..." : "Save Stock"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="mt-6 overflow-hidden rounded-xl border bg-card shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-5 py-3 font-medium">Product</th>
-              <th className="px-5 py-3 font-medium">SKU</th>
-              <th className="px-5 py-3 font-medium">Stock level</th>
-              <th className="px-5 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filtered.map((p) => (
-              <tr key={p.id} className="hover:bg-muted/40">
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <img src={p.image} alt="" className="size-10 rounded-md border object-cover" />
-                    <div><p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.category}</p></div>
-                  </div>
-                </td>
-                <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{p.id.toUpperCase()}</td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <Progress value={Math.min(100, (p.stock / 80) * 100)} className="h-1.5 w-32" />
-                    <span className="text-xs tabular-nums text-muted-foreground">{p.stock}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3">
-                  {p.stock === 0
-                    ? <Badge variant="outline" className="border-destructive/30 text-destructive">Out</Badge>
-                    : p.stock < 15
-                    ? <Badge variant="secondary">Low</Badge>
-                    : <Badge variant="outline" className="border-success/30 text-success">In stock</Badge>}
-                </td>
+        {loading ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">Loading inventory...</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-medium">Product</th>
+                <th className="px-5 py-3 font-medium">Product ID</th>
+                <th className="px-5 py-3 font-medium">Stock Level</th>
+                <th className="px-5 py-3 font-medium">Reserved</th>
+                <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 text-right font-medium">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((item) => {
+                const prod = productsMap[item.product_id];
+                const pName = prod?.name || "Product";
+                const pCat = prod?.category || "Inventory";
+                const pImg =
+                  prod?.image_url ||
+                  `https://placehold.co/80x80?text=${encodeURIComponent(pName)}`;
+
+                return (
+                  <tr key={item.product_id} className="hover:bg-muted/40">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={pImg} alt="" className="size-10 rounded-md border object-cover" />
+                        <div>
+                          <p className="font-medium">{pName}</p>
+                          <p className="text-xs text-muted-foreground">{pCat}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                      {item.product_id}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <Progress
+                          value={Math.min(100, (item.available_stock / 100) * 100)}
+                          className="h-1.5 w-32"
+                        />
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {item.available_stock} / {item.total_stock}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                      {item.reserved_stock} reserved
+                    </td>
+                    <td className="px-5 py-3">
+                      {item.available_stock === 0 ? (
+                        <Badge variant="outline" className="border-destructive/30 text-destructive">
+                          Out of stock
+                        </Badge>
+                      ) : item.available_stock < 15 ? (
+                        <Badge variant="secondary">Low stock</Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-success/30 text-success">
+                          In stock
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Button variant="outline" size="sm" onClick={() => handleEditClick(item)}>
+                        Edit Stock
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );
