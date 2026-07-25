@@ -36,7 +36,7 @@ function OrdersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
       <PageHeader
         title="Your orders"
         description="Track, review, or reorder your recent purchases."

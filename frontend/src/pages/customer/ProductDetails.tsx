@@ -113,7 +113,7 @@ function ProductDetail() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full px-4 py-12 sm:px-6 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="aspect-square rounded-2xl bg-muted animate-pulse" />
           <div className="space-y-4">
@@ -130,7 +130,7 @@ function ProductDetail() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-20">
+      <div className="w-full px-4 py-20 sm:px-6 lg:px-10">
         <EmptyState
           icon={AlertCircle}
           title="Failed to load product"
@@ -152,7 +152,7 @@ function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-20">
+      <div className="w-full px-4 py-20 sm:px-6 lg:px-10">
         <EmptyState
           icon={AlertCircle}
           title="Product not found"
@@ -174,7 +174,7 @@ function ProductDetail() {
   const outOfStock = stockCount <= 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-8 sm:px-6 lg:px-10">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>

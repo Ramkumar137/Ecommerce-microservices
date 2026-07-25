@@ -14,7 +14,7 @@ function CartPage() {
 
   if (loading && items.length === 0) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full px-4 py-12 sm:px-6 lg:px-10">
         <PageHeader title="Shopping cart" description="Loading your cart..." />
         <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="h-64 rounded-xl border bg-card p-6 animate-pulse" />
@@ -25,7 +25,7 @@ function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
       <PageHeader
         title="Shopping cart"
         description={`${items.length} item${items.length === 1 ? "" : "s"} in your cart`}

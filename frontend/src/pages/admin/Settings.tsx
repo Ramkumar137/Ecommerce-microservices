@@ -17,8 +17,8 @@ function AdminSettings() {
         <div className="rounded-xl border bg-card p-6 shadow-soft">
           <h3 className="text-sm font-semibold">General</h3>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div><Label>Store name</Label><Input defaultValue="Northline" className="mt-1.5" /></div>
-            <div><Label>Support email</Label><Input defaultValue="hello@northline.co" className="mt-1.5" /></div>
+            <div><Label>Store name</Label><Input defaultValue="HeisenFlow" className="mt-1.5" /></div>
+            <div><Label>Support email</Label><Input defaultValue="hello@heisenflow.co" className="mt-1.5" /></div>
             <div className="sm:col-span-2"><Label>Store description</Label><Textarea rows={3} defaultValue="Considered products, built to last." className="mt-1.5" /></div>
           </div>
           <div className="mt-6 flex justify-end gap-2 border-t pt-6">

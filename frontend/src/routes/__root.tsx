@@ -75,10 +75,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Northline — Considered products, built to last" },
+      { title: "HeisenFlow — Considered products, built to last" },
       { name: "description", content: "A modern commerce experience for people who value quality. Free shipping over $50." },
-      { name: "author", content: "Northline" },
-      { property: "og:title", content: "Northline — Considered products, built to last" },
+      { name: "author", content: "HeisenFlow" },
+      { property: "og:title", content: "HeisenFlow — Considered products, built to last" },
       { property: "og:description", content: "A modern commerce experience for people who value quality." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

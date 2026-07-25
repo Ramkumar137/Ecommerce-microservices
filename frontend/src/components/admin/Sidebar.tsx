@@ -20,8 +20,8 @@ export function AdminSidebar({ open }: { open: boolean }) {
       }`}
     >
       <div className="flex h-16 items-center gap-2 border-b px-4">
-        <div className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground text-background text-xs font-bold">N</div>
-        {open && <span className="text-[15px] font-semibold tracking-tight">Northline</span>}
+        <div className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground text-background text-xs font-bold">H</div>
+        {open && <span className="text-[15px] font-semibold tracking-tight">HeisenFlow</span>}
       </div>
       <nav className="flex flex-col gap-0.5 p-2">
         {items.map((it) => {

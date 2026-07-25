@@ -15,7 +15,7 @@ function SettingsPage() {
     ]},
   ];
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
       <PageHeader title="Settings" description="Customize your account experience." />
       <div className="mt-8 space-y-6">
         {groups.map((g) => (

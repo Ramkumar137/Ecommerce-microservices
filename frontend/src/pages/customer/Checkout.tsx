@@ -131,7 +131,7 @@ function Checkout() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Checkout</h1>
 
       {error && (

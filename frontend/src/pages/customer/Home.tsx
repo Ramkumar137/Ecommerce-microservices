@@ -46,7 +46,7 @@ function Landing() {
     <>
       {/* Hero */}
       <section className="border-b bg-surface">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:px-8">
+        <div className="grid w-full gap-10 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:px-10">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               Considered products,<br /> built to last.
@@ -130,7 +130,7 @@ function Landing() {
 
       {/* Categories */}
       {categories.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="w-full px-4 py-16 sm:px-6 lg:px-10">
           <div className="flex items-end justify-between">
             <h2 className="text-2xl font-semibold tracking-tight">Shop by category</h2>
             <Link to="/products" className="text-sm text-muted-foreground hover:text-foreground">
@@ -153,7 +153,7 @@ function Landing() {
 
       {/* Trending */}
       <section className="border-t bg-surface">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-16 sm:px-6 lg:px-10">
           <div className="flex items-end justify-between">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Featured products</h2>

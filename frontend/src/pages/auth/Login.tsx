@@ -71,7 +71,7 @@ function LoginPage() {
       </h1>
 
       <p className="mt-1.5 text-sm text-muted-foreground">
-        Sign in to your HeisenHub account.
+        Sign in to your HeisenFlow account.
       </p>
 
       <form

@@ -46,7 +46,7 @@ function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
       <PageHeader title="Profile" description="Manage your account and preferences." />
 
       <div className="mt-8 flex items-center gap-4 rounded-xl border bg-card p-5 shadow-soft">

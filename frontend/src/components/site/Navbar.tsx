@@ -5,6 +5,8 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getUserInitials } from "@/utils/user";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,16 +27,17 @@ export function Navbar() {
   const { count } = useCart();
   const { user, logout, isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
   const navigation = isAuthenticated
-  ? [
-      ...baseNav,
-      { to: "/orders", label: "Orders" },
-    ]
-  : baseNav;
+    ? [...baseNav, { to: "/orders", label: "Orders" }]
+    : baseNav;
+
+  const initials = getUserInitials(user);
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="flex h-16 w-full items-center gap-4 px-4 sm:px-6 lg:px-10">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
@@ -44,7 +47,7 @@ export function Navbar() {
           <SheetContent side="left" className="w-72 p-0">
             <div className="flex h-16 items-center justify-between border-b px-5">
               <Link to="/" onClick={() => setMobileOpen(false)} className="text-base font-semibold tracking-tight">
-                HeisenHub
+                HeisenFlow
               </Link>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
                 <X className="size-5" />
@@ -74,7 +77,7 @@ export function Navbar() {
 
         <Link to="/" className="flex items-center gap-2">
           <div className="grid size-7 place-items-center rounded-md bg-foreground text-background text-xs font-bold">H</div>
-          <span className="text-[15px] font-semibold tracking-tight">HeisenHub</span>
+          <span className="text-[15px] font-semibold tracking-tight">HeisenFlow</span>
         </Link>
 
         <nav className="ml-4 hidden items-center gap-1 md:flex">
@@ -116,61 +119,57 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="flex items-center gap-2 px-2"
-              >
-                <User className="size-5" />
-
-                {isAuthenticated && (
-                  <span className="hidden md:block text-sm">
-                    {user?.email}
-                  </span>
-                )}
-              </Button>
+              {isAuthenticated ? (
+                <Button variant="ghost" className="relative size-9 rounded-full p-0" aria-label="User menu">
+                  <Avatar className="size-9 border bg-muted">
+                    <AvatarFallback className="bg-primary font-semibold text-xs text-primary-foreground">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              ) : (
+                <Button variant="ghost" size="icon" aria-label="Sign in">
+                  <User className="size-5" />
+                </Button>
+              )}
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-60">
-
               {!isAuthenticated ? (
                 <>
                   <DropdownMenuItem asChild>
-                    <Link to="/auth/login">
-                      Sign In
-                    </Link>
+                    <Link to="/auth/login">Sign In</Link>
                   </DropdownMenuItem>
-
                   <DropdownMenuItem asChild>
-                    <Link to="/auth/register">
-                      Register
-                    </Link>
+                    <Link to="/auth/register">Register</Link>
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <DropdownMenuLabel>
-                    {user?.email}
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {fullName || user?.username || "User Account"}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email || "No email available"}
+                      </p>
+                    </div>
                   </DropdownMenuLabel>
 
                   <DropdownMenuSeparator />
 
                   <DropdownMenuItem asChild>
-                    <Link to="/profile">
-                      Profile
-                    </Link>
+                    <Link to="/profile">Profile</Link>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild>
-                    <Link to="/orders">
-                      Orders
-                    </Link>
+                    <Link to="/orders">Orders</Link>
                   </DropdownMenuItem>
 
-                  {user?.role === "ADMIN" && (
+                  {(user?.role?.toUpperCase() === "ADMIN" || user?.role?.toUpperCase() === "ADMINISTRATOR") && (
                     <DropdownMenuItem asChild>
-                      <Link to="/admin">
-                        Admin Dashboard
-                      </Link>
+                      <Link to="/admin">Admin Dashboard</Link>
                     </DropdownMenuItem>
                   )}
 
@@ -178,13 +177,12 @@ export function Navbar() {
 
                   <DropdownMenuItem
                     onClick={() => logout()}
-                    className="text-red-600"
+                    className="text-destructive focus:text-destructive"
                   >
                     Logout
                   </DropdownMenuItem>
                 </>
               )}
-
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
