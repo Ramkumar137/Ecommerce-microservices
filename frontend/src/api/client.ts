@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { storage } from "@/utils/storage";
 import { ENV } from "@/config/env";
+import { handleSessionExpired, isJwtExpired } from "@/utils/session";
 
 /**
  * Authenticated Axios Client Instance for Microservices
@@ -29,19 +30,31 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// 1. Request Interceptor: Attach Access Token securely
+// 1. Request Interceptor: Pre-validate JWT Expiry & Attach Access Token securely
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = storage.getAccessToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const refreshToken = storage.getRefreshToken();
+
+    if (token) {
+      // Check if access token is expired prior to request
+      if (isJwtExpired(token)) {
+        // If refresh token is also expired or missing, trigger immediate smooth auto-logout
+        if (!refreshToken || isJwtExpired(refreshToken)) {
+          handleSessionExpired();
+          return Promise.reject(new axios.Cancel("Session expired"));
+        }
+      }
+      if (config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// 2. Response Interceptor: Token Refresh & Automatic Retry handling
+// 2. Response Interceptor: Token Refresh & Automatic Smooth Logout handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -50,15 +63,18 @@ apiClient.interceptors.response.use(
       _retryCount?: number;
     };
 
-    if (!originalRequest) {
+    if (!originalRequest || axios.isCancel(error)) {
       return Promise.reject(error);
     }
 
+    const status = error.response?.status;
+    const responseData = error.response?.data as any;
+
     // Handle 401 Unauthorized token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       const refreshToken = storage.getRefreshToken();
-      if (!refreshToken) {
-        storage.clear();
+      if (!refreshToken || isJwtExpired(refreshToken)) {
+        handleSessionExpired();
         return Promise.reject(error);
       }
 
@@ -97,10 +113,31 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr as Error, null);
-        storage.clear();
+        handleSessionExpired();
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // Handle 403 Forbidden due to invalid/expired token or revoked credentials
+    if (status === 403) {
+      const errorMsg =
+        typeof responseData === "string"
+          ? responseData
+          : responseData?.message || responseData?.error || responseData?.detail || "";
+
+      const isTokenError =
+        typeof errorMsg === "string" &&
+        (errorMsg.toLowerCase().includes("token") ||
+          errorMsg.toLowerCase().includes("expired") ||
+          errorMsg.toLowerCase().includes("unauthorized") ||
+          errorMsg.toLowerCase().includes("permission denied") ||
+          errorMsg.toLowerCase().includes("invalid signature"));
+
+      if (isTokenError) {
+        handleSessionExpired();
+        return Promise.reject(error);
       }
     }
 

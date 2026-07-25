@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { OrderStatusBadge } from "@/components/common/StatusBadge";
 import { formatPrice } from "@/context/cart-context";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { productsApi } from "@/api/products";
 import { inventoryApi } from "@/api/inventory";
@@ -16,6 +17,7 @@ import type { Order } from "@/types/order";
 import type { Payment } from "@/types/payment";
 
 function AdminDashboard() {
+  const { isAuthenticated, isAdmin } = useAuth();
   const [productList, setProductList] = useState<Product[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [orderList, setOrderList] = useState<Order[]>([]);
@@ -23,6 +25,11 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated || !isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     async function loadData() {
       try {
         setLoading(true);
@@ -42,7 +49,7 @@ function AdminDashboard() {
       }
     }
     loadData();
-  }, []);
+  }, [isAuthenticated, isAdmin]);
 
   const totalRevenue = paymentList
     .filter((p) => p.status === "COMPLETED")

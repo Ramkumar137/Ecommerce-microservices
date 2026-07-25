@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cartApi } from "@/api/cart";
 import { useAuth } from "./auth-context";
+import { GuestAuthModal } from "@/components/common/GuestAuthModal";
 import type { Product } from "@/types/product";
 import { toast } from "sonner";
 
@@ -15,6 +16,9 @@ type CartContextValue = {
   subtotal: number;
   loading: boolean;
   error: string | null;
+  guestAuthModalOpen: boolean;
+  openGuestAuthModal: () => void;
+  closeGuestAuthModal: () => void;
   add: (product: Product, qty?: number) => Promise<void>;
   remove: (productId: string) => Promise<void>;
   setQty: (productId: string, qty: number) => Promise<void>;
@@ -26,55 +30,98 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 const STORAGE_KEY = "commerce.cart.v1";
 
+// Helper to reliably extract and compare product IDs
+function getProductId(product: any): string {
+  if (!product) return "";
+  return String(product.product_id || product.id || product._id || "").trim();
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading: authLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [guestAuthModalOpen, setGuestAuthModalOpen] = useState(false);
 
-  // 1. Initial Load from LocalStorage for guest/offline UX
+  const openGuestAuthModal = useCallback(() => setGuestAuthModalOpen(true), []);
+  const closeGuestAuthModal = useCallback(() => setGuestAuthModalOpen(false), []);
+
+  // Set to track in-flight removal requests to prevent duplicate calls
+  const pendingRemovalsRef = useRef<Set<string>>(new Set());
+
+  // Derive user identity key for cart isolation
+  const userId = useMemo(() => {
+    if (!user) return "";
+    return String(user.user_id || (user as any).id || user.email || "").trim();
+  }, [user]);
+
+  const storageKey = useMemo(() => {
+    if (isAuthenticated && userId) {
+      return `commerce.cart.user_${userId}`;
+    }
+    return "commerce.cart.guest";
+  }, [isAuthenticated, userId]);
+
+  // 1. Initial Load & Switch from LocalStorage per user identity (Only when authenticated)
   useEffect(() => {
+    if (!isAuthenticated) {
+      setItems([]);
+      setHydrated(true);
+      return;
+    }
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch {}
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        setItems(JSON.parse(raw));
+      } else {
+        setItems([]);
+      }
+    } catch {
+      setItems([]);
+    }
     setHydrated(true);
-  }, []);
+  }, [storageKey, isAuthenticated]);
 
-  // 2. Persist items to LocalStorage on change
+  // 2. Persist items to LocalStorage on change under current user storageKey (Only when authenticated)
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !isAuthenticated) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(storageKey, JSON.stringify(items));
     } catch {}
-  }, [items, hydrated]);
+  }, [items, storageKey, hydrated, isAuthenticated]);
 
-  // 3. Backend Cart Synchronization (getCart)
+  // 3. Backend Cart Synchronization (getCart) - Disabled while auth is loading or for Admin users
   const refreshCart = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (authLoading || !isAuthenticated || isAdmin) return;
     try {
       setLoading(true);
       setError(null);
       const cartRes = await cartApi.getCart();
       if (cartRes && Array.isArray(cartRes.items)) {
-        const fetchedItems: CartItem[] = cartRes.items.map((i) => ({
-          product: {
-            product_id: i.product_id,
-            name: i.product_name || "Product",
-            description: "",
-            brand: "",
-            category: "",
-            price: Number(i.price || 0),
-            stock: 99,
-            image_url: i.image_url || "",
-            is_active: true,
-            created_at: "",
-            updated_at: "",
-          },
-          quantity: i.quantity,
-        }));
-        setItems(fetchedItems);
+        setItems((prevItems) => {
+          const itemMap = new Map(prevItems.map((pi) => [getProductId(pi.product), pi.product]));
+          return cartRes.items.map((i) => {
+            const pId = String(i.product_id || "").trim();
+            const existingProduct = itemMap.get(pId);
+            return {
+              product: {
+                product_id: pId,
+                name: i.product_name || existingProduct?.name || "Product",
+                description: existingProduct?.description || "",
+                brand: existingProduct?.brand || "",
+                category: existingProduct?.category || "",
+                price: Number(i.price ?? existingProduct?.price ?? 0),
+                stock: existingProduct?.stock ?? 99,
+                image_url: i.image_url || existingProduct?.image_url || "",
+                is_active: existingProduct?.is_active ?? true,
+                created_at: existingProduct?.created_at || "",
+                updated_at: existingProduct?.updated_at || "",
+              },
+              quantity: Math.max(1, Number(i.quantity || 1)),
+            };
+          });
+        });
       }
     } catch (err: any) {
       if (err?.response) {
@@ -85,18 +132,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [authLoading, isAuthenticated, isAdmin]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && isAuthenticated && !isAdmin) {
       refreshCart();
     }
-  }, [isAuthenticated, refreshCart]);
+  }, [authLoading, isAuthenticated, isAdmin, refreshCart]);
 
-  // 4. Add Item (addItem)
+  // 4. Add Item (addItem) - Gated for guests & restricted for Admin users
   const add = useCallback(
     async (product: Product, qty = 1) => {
-      const targetProductId = product.product_id || (product as any).id || (product as any)._id;
+      if (!isAuthenticated) {
+        setGuestAuthModalOpen(true);
+        throw new Error("GUEST_AUTH_REQUIRED");
+      }
+
+      if (isAdmin) {
+        toast.error("Admins cannot add products to cart.");
+        throw new Error("ADMIN_RESTRICTED");
+      }
+
+      const targetProductId = getProductId(product);
 
       if (!targetProductId) {
         console.error("[Add To Cart Error] Missing product_id on product object:", product);
@@ -104,83 +161,132 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const previousItems = [...items];
+      const validQty = Math.max(1, Math.floor(qty));
       const normalizedProduct: Product = { ...product, product_id: targetProductId };
+      let previousItems: CartItem[] = [];
 
       // Optimistic State Update
       setItems((prev) => {
-        const found = prev.find((i) => (i.product.product_id || (i.product as any).id) === targetProductId);
+        previousItems = prev;
+        const found = prev.find((i) => getProductId(i.product) === targetProductId);
         if (found) {
           return prev.map((i) =>
-            (i.product.product_id || (i.product as any).id) === targetProductId
-              ? { ...i, quantity: i.quantity + qty }
+            getProductId(i.product) === targetProductId
+              ? { ...i, quantity: i.quantity + validQty }
               : i
           );
         }
-        return [...prev, { product: normalizedProduct, quantity: qty }];
+        return [...prev, { product: normalizedProduct, quantity: validQty }];
       });
 
-      if (isAuthenticated) {
+      if (isAuthenticated && !isAdmin) {
         try {
           await cartApi.addItem({
             product_id: targetProductId,
-            quantity: Number(qty),
+            quantity: Number(validQty),
           });
         } catch (err: any) {
           // Rollback local state on backend failure
           setItems(previousItems);
-          const status = err?.response?.status;
           const responseData = err?.response?.data;
-          console.error("[Add to Cart Failed]", "Status:", status, "Data:", responseData);
+          console.error("[Add to Cart Failed]", "Status:", err?.response?.status, "Data:", responseData);
           const errMsg =
             responseData?.error ||
             responseData?.detail ||
             responseData?.message ||
-            (responseData?.product_id ? `product_id: ${responseData.product_id.join(", ")}` : null) ||
             "Failed to add item to backend cart";
           toast.error(errMsg);
           throw err;
         }
       }
     },
-    [items, isAuthenticated]
+    [isAuthenticated, isAdmin]
   );
 
-  // 5. Remove Item (removeItem)
+  // 5. Remove Item (removeItem) - Restricted for Admin users
   const remove = useCallback(
     async (productId: string) => {
-      const previousItems = [...items];
-      setItems((prev) => prev.filter((i) => (i.product.product_id || (i.product as any).id) !== productId));
+      if (isAdmin) return;
 
-      if (isAuthenticated) {
-        try {
-          await cartApi.removeItem(productId);
-        } catch (err: any) {
-          setItems(previousItems);
-          console.error("[Remove Cart Item Error]", "Status:", err?.response?.status, "Data:", err?.response?.data);
-          toast.error("Failed to remove item from backend cart");
-          throw err;
-        }
-      }
-    },
-    [items, isAuthenticated]
-  );
-
-  // 6. Update Quantity (updateQuantity)
-  const setQty = useCallback(
-    async (productId: string, qty: number) => {
-      if (qty <= 0) {
-        await remove(productId);
+      const cleanId = String(productId || "").trim();
+      if (!cleanId || cleanId === "undefined" || cleanId === "null") {
+        console.warn("[Remove Cart Item] Aborted: Invalid product ID", productId);
         return;
       }
-      const previousItems = [...items];
-      setItems((prev) =>
-        prev.map((i) => ((i.product.product_id || (i.product as any).id) === productId ? { ...i, quantity: qty } : i))
-      );
 
-      if (isAuthenticated) {
+      // Prevent duplicate/stale removal requests for the same product ID
+      if (pendingRemovalsRef.current.has(cleanId)) {
+        console.warn("[Remove Cart Item] Aborted: Removal already in progress for product ID", cleanId);
+        return;
+      }
+
+      pendingRemovalsRef.current.add(cleanId);
+
+      let previousItems: CartItem[] = [];
+      setItems((prev) => {
+        previousItems = prev;
+        return prev.filter((i) => getProductId(i.product) !== cleanId);
+      });
+
+      if (isAuthenticated && !isAdmin) {
         try {
-          await cartApi.updateQuantity(productId, { quantity: Number(qty) });
+          await cartApi.removeItem(cleanId);
+        } catch (err: any) {
+          const status = err?.response?.status;
+          const responseData = err?.response?.data;
+          const errorMsg =
+            typeof responseData === "string"
+              ? responseData
+              : responseData?.message || responseData?.error || responseData?.detail || "";
+
+          const isNotFoundInBackend =
+            status === 404 ||
+            status === 403 ||
+            (typeof errorMsg === "string" &&
+              (errorMsg.toLowerCase().includes("not found") ||
+                errorMsg.toLowerCase().includes("does not exist")));
+
+          if (isNotFoundInBackend) {
+            // Product is already not in backend cart! Do not rollback; sync state with backend.
+            console.log("[Remove Cart Item] Backend confirms item not in cart, syncing state.");
+            await refreshCart();
+          } else {
+            // Real network/server failure: rollback local state and notify user
+            setItems(previousItems);
+            console.error("[Remove Cart Item Error]", "Status:", status, "Data:", responseData);
+            toast.error(errorMsg || "Failed to remove item from backend cart");
+          }
+        } finally {
+          pendingRemovalsRef.current.delete(cleanId);
+        }
+      } else {
+        pendingRemovalsRef.current.delete(cleanId);
+      }
+    },
+    [isAuthenticated, isAdmin, refreshCart]
+  );
+
+  // 6. Update Quantity (updateQuantity, min=1) - Restricted for Admin users
+  const setQty = useCallback(
+    async (productId: string, qty: number) => {
+      if (isAdmin) return;
+
+      const cleanId = String(productId || "").trim();
+      if (!cleanId || cleanId === "undefined" || cleanId === "null") return;
+
+      const validQty = Math.max(1, Math.floor(qty));
+      let previousItems: CartItem[] = [];
+
+      setItems((prev) => {
+        previousItems = prev;
+        return prev.map((i) =>
+          getProductId(i.product) === cleanId ? { ...i, quantity: validQty } : i
+        );
+      });
+
+      if (isAuthenticated && !isAdmin) {
+        try {
+          await cartApi.updateQuantity(cleanId, { quantity: Number(validQty) });
         } catch (err: any) {
           setItems(previousItems);
           console.error("[Update Cart Qty Error]", "Status:", err?.response?.status, "Data:", err?.response?.data);
@@ -189,15 +295,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [items, isAuthenticated, remove]
+    [isAuthenticated, isAdmin]
   );
 
-  // 7. Clear Cart
+  // 7. Clear Cart - Restricted for Admin users
   const clear = useCallback(async () => {
-    const previousItems = [...items];
-    setItems([]);
+    if (isAdmin) return;
 
-    if (isAuthenticated) {
+    let previousItems: CartItem[] = [];
+    setItems((prev) => {
+      previousItems = prev;
+      return [];
+    });
+
+    if (isAuthenticated && !isAdmin) {
       try {
         await cartApi.clearCart();
       } catch (err: any) {
@@ -207,15 +318,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     }
-  }, [items, isAuthenticated]);
+  }, [isAuthenticated, isAdmin]);
 
   const value = useMemo<CartContextValue>(() => {
     const count = items.reduce((a, i) => a + i.quantity, 0);
-    const subtotal = items.reduce((a, i) => a + i.quantity * Number(i.product.price), 0);
-    return { items, count, subtotal, loading, error, add, remove, setQty, clear, refreshCart };
-  }, [items, loading, error, add, remove, setQty, clear, refreshCart]);
+    const subtotal = items.reduce((a, i) => a + (Number(i.quantity) * Number(i.product?.price || 0)), 0);
+    return {
+      items,
+      count,
+      subtotal,
+      loading,
+      error,
+      guestAuthModalOpen,
+      openGuestAuthModal,
+      closeGuestAuthModal,
+      add,
+      remove,
+      setQty,
+      clear,
+      refreshCart,
+    };
+  }, [items, loading, error, guestAuthModalOpen, openGuestAuthModal, closeGuestAuthModal, add, remove, setQty, clear, refreshCart]);
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <GuestAuthModal open={guestAuthModalOpen} onOpenChange={setGuestAuthModalOpen} />
+    </CartContext.Provider>
+  );
 }
 
 export function useCart() {
@@ -227,3 +357,5 @@ export function useCart() {
 export function formatPrice(v: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
 }
+
+

@@ -25,7 +25,7 @@ const baseNav = [
 export function Navbar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navigation = isAuthenticated
@@ -106,16 +106,18 @@ export function Navbar() {
             />
           </div>
 
-          <Button asChild variant="ghost" size="icon" aria-label="Cart" className="relative">
-            <Link to="/cart">
-              <ShoppingBag className="size-5" />
-              {count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                  {count}
-                </span>
-              )}
-            </Link>
-          </Button>
+          {!isAdmin && (
+            <Button asChild variant="ghost" size="icon" aria-label="Cart" className="relative">
+              <Link to="/cart">
+                <ShoppingBag className="size-5" />
+                {count > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                    {count}
+                  </span>
+                )}
+              </Link>
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

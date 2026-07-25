@@ -29,8 +29,12 @@ export const storage = {
   },
 
   clear() {
-    localStorage.removeItem(ACCESS_TOKEN);
-    localStorage.removeItem(REFRESH_TOKEN);
-    localStorage.removeItem(USER);
+    try {
+      localStorage.removeItem(ACCESS_TOKEN);
+      localStorage.removeItem(REFRESH_TOKEN);
+      localStorage.removeItem(USER);
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
   },
 };

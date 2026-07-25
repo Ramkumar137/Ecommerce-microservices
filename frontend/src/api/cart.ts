@@ -49,8 +49,9 @@ export const cartApi = {
   },
 
   updateQuantity(productId: string, data: UpdateCartItemRequest): Promise<CartItem> {
+    const cleanId = encodeURIComponent(String(productId).trim());
     return apiClient
-      .put(`${CART_URL}/items/${productId}/`, data)
+      .put(`${CART_URL}/items/${cleanId}/`, data)
       .then((r) => r.data)
       .catch((err) => {
         if (err.response) {
@@ -64,8 +65,9 @@ export const cartApi = {
   },
 
   removeItem(productId: string): Promise<void> {
+    const cleanId = encodeURIComponent(String(productId).trim());
     return apiClient
-      .delete(`${CART_URL}/items/${productId}/`)
+      .delete(`${CART_URL}/items/${cleanId}/`)
       .then((r) => r.data)
       .catch((err) => {
         if (err.response) {

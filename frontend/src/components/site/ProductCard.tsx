@@ -3,12 +3,14 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart, formatPrice } from "@/context/cart-context";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { Product } from "@/types/product";
 
 export function ProductCard({ product }: { product: Product }) {
-  const { add } = useCart();
+  const { add, openGuestAuthModal } = useCart();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [adding, setAdding] = useState(false);
 
   const outOfStock = Number(product.stock) === 0;
@@ -18,12 +20,22 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
 
+    if (!isAuthenticated) {
+      openGuestAuthModal();
+      return;
+    }
+
+    if (isAdmin) {
+      toast.error("Admins cannot add products to cart.");
+      return;
+    }
+
     try {
       setAdding(true);
       await add(product);
       toast.success(`Added ${product.name} to cart`);
     } catch {
-      // Toast error is handled inside useCart add method
+      // Toast error is handled inside useCart add method or swallowed if restricted/guest
     } finally {
       setAdding(false);
     }
@@ -79,13 +91,16 @@ export function ProductCard({ product }: { product: Product }) {
           <Button
             size="sm"
             variant="outline"
-            disabled={outOfStock || adding}
+            disabled={outOfStock || adding || isAdmin}
+            title={isAdmin ? "Admins cannot add products to cart" : undefined}
             onClick={handleAddToCart}
           >
             {adding ? (
               <span className="flex items-center gap-1">
                 <Loader2 className="size-3.5 animate-spin" /> Adding
               </span>
+            ) : isAdmin ? (
+              "Restricted"
             ) : (
               "Add"
             )}

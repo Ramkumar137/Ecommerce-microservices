@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import AuthService from "@/services/auth.service";
+import { storage } from "@/utils/storage";
+import { performFullLogout, isJwtExpired } from "@/utils/session";
 import type { LoginRequest, RegisterRequest, User, UpdateProfileRequest } from "@/types/auth";
 
 interface AuthContextType {
@@ -16,22 +18,49 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Synchronously rehydrate user from storage on mount if token is valid
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const token = storage.getAccessToken();
+      if (!token || isJwtExpired(token)) {
+        storage.clear();
+        return null;
+      }
+      return storage.getUser();
+    } catch {
+      storage.clear();
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
-  // App load initialization: Token refresh & session verification
+  // App load initialization: Session verification & token validation
   useEffect(() => {
     async function initAuth() {
       try {
         const userSession = await AuthService.initializeAuthSession();
         setUser(userSession);
       } catch {
-        setUser(null);
+        if (!storage.getAccessToken()) {
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
     }
     initAuth();
+
+    const handleLogoutState = () => {
+      setUser(null);
+      setLoading(false);
+    };
+
+    window.addEventListener("auth:session-expired", handleLogoutState);
+    window.addEventListener("auth:logout", handleLogoutState);
+    return () => {
+      window.removeEventListener("auth:session-expired", handleLogoutState);
+      window.removeEventListener("auth:logout", handleLogoutState);
+    };
   }, []);
 
   const login = async (data: LoginRequest): Promise<User> => {
@@ -45,9 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    AuthService.logout();
     setUser(null);
-    window.location.href = "/auth/login";
+    performFullLogout(false);
   };
 
   const updateUserProfile = async (data: UpdateProfileRequest): Promise<User> => {

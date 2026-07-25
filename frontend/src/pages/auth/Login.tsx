@@ -48,8 +48,13 @@ function LoginPage() {
         localStorage.getItem("user") || "{}"
       );
 
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirect = searchParams.get("redirect");
+
       if (currentUser.role === "ADMIN") {
         navigate({ to: "/admin" });
+      } else if (redirect && redirect.startsWith("/")) {
+        navigate({ to: redirect as any });
       } else {
         navigate({ to: "/" });
       }

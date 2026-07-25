@@ -185,6 +185,7 @@ function ProductListing() {
           onResetFilters={handleResetFilters}
           searchQuery={q}
           sortOption={sort}
+          onSelectSort={setSort}
         />
       </div>
 

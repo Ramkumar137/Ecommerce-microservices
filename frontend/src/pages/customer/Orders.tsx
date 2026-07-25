@@ -5,19 +5,25 @@ import { OrderStatusBadge } from "@/components/common/StatusBadge";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { formatPrice } from "@/context/cart-context";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
-import { Package, AlertCircle, RefreshCw } from "lucide-react";
+import { Package, AlertCircle, RefreshCw, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/types/order";
 
 function OrdersPage() {
+  const { isAuthenticated } = useAuth();
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (isAuthenticated) {
+      loadOrders();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   async function loadOrders() {
     try {
@@ -33,6 +39,37 @@ function OrdersPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Render Guest Sign-In Prompt Card when unauthenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
+        <PageHeader
+          title="Your orders"
+          description="Authentication required to view order history"
+        />
+        <div className="mt-8">
+          <EmptyState
+            icon={Lock}
+            title="Sign in to view your orders"
+            description="Please log in or create an account to view your order history, track shipments, and manage past purchases."
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button asChild size="lg" className="gap-2">
+                  <Link to="/auth/login">
+                    Sign In <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild size="lg">
+                  <Link to="/auth/register">Create Account</Link>
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    );
   }
 
   return (

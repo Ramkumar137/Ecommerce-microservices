@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { CreditCard, Landmark, Truck, Zap, Lock, Loader2, AlertCircle } from "lucide-react";
+import { CreditCard, Landmark, Truck, Zap, Lock, Loader2, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { useCart, formatPrice } from "@/context/cart-context";
 import { useAuth } from "@/context/auth-context";
 import { ordersApi } from "@/api/orders";
 import { paymentsApi } from "@/api/payments";
+import { PageHeader } from "@/components/common/PageHeader";
+import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
 
 function Section({ title, step, children }: { title: string; step: number; children: React.ReactNode }) {
@@ -26,10 +28,37 @@ function Section({ title, step, children }: { title: string; step: number; child
 }
 
 function Checkout() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { items, subtotal, clear } = useCart();
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
+
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full px-4 py-12 sm:px-6 lg:px-10">
+        <PageHeader title="Checkout" description="Authentication required" />
+        <div className="mt-8">
+          <EmptyState
+            icon={Lock}
+            title="Sign in to checkout"
+            description="Please sign in or create an account to complete your purchase and track your order."
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button asChild size="lg" className="gap-2">
+                  <Link to="/auth/login">
+                    Sign In <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild size="lg">
+                  <Link to="/auth/register">Create Account</Link>
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
   
   const [loading, setLoading] = useState(false);
   const [processingStep, setProcessingStep] = useState<string | null>(null);

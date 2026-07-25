@@ -6,6 +6,7 @@ import { inventoryApi } from "@/api/inventory";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCart, formatPrice } from "@/context/cart-context";
+import { useAuth } from "@/context/auth-context";
 import { ProductCard } from "@/components/site/ProductCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
@@ -29,7 +30,8 @@ function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { add } = useCart();
+  const { add, openGuestAuthModal } = useCart();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [qty, setQty] = useState(1);
   const [active, setActive] = useState(0);
 
@@ -278,13 +280,26 @@ function ProductDetail() {
             </div>
             <Button
               size="lg"
-              disabled={outOfStock}
-              onClick={() => {
-                add(product, qty);
-                toast.success(`Added ${qty} × ${product.name} to cart`);
+              disabled={outOfStock || isAdmin}
+              title={isAdmin ? "Admins cannot add products to cart" : undefined}
+              onClick={async () => {
+                if (!isAuthenticated) {
+                  openGuestAuthModal();
+                  return;
+                }
+                if (isAdmin) {
+                  toast.error("Admins cannot add products to cart.");
+                  return;
+                }
+                try {
+                  await add(product, qty);
+                  toast.success(`Added ${qty} × ${product.name} to cart`);
+                } catch {
+                  // Error handled in useCart
+                }
               }}
             >
-              Add to cart
+              {isAdmin ? "Restricted for Admin" : "Add to cart"}
             </Button>
           </div>
 

@@ -1,5 +1,6 @@
 import { authService } from "@/api/services/auth";
 import { storage } from "@/utils/storage";
+import { isJwtExpired, handleSessionExpired } from "@/utils/session";
 import type { LoginRequest, RegisterRequest, User, LoginResponse, UpdateProfileRequest } from "@/types/auth";
 
 class AuthService {
@@ -35,9 +36,10 @@ class AuthService {
 
   /**
    * Initializes authentication session on app load:
-   * 1. Proactively attempts token refresh if refresh_token is stored.
-   * 2. Fetches fresh profile data.
-   * 3. Performs auto-logout on failure.
+   * 1. Validates token expiration immediately before firing requests.
+   * 2. If access_token valid, attempts profile fetch directly.
+   * 3. If access_token returns 401/403, attempts token refresh using refresh_token.
+   * 4. Performs auto-logout only on invalid/expired credentials.
    */
   async initializeAuthSession(): Promise<User | null> {
     const refreshToken = storage.getRefreshToken();
@@ -48,30 +50,54 @@ class AuthService {
       return null;
     }
 
-    // 1. Refresh access token on app load if refresh token exists
+    // Pre-validate token expiration on app load
+    if (accessToken && isJwtExpired(accessToken)) {
+      if (!refreshToken || isJwtExpired(refreshToken)) {
+        handleSessionExpired();
+        return null;
+      }
+    }
+
+    // 1. Try profile fetch directly using existing access_token
+    if (accessToken) {
+      try {
+        const user = await authService.getProfile();
+        if (user) {
+          storage.setUser(user);
+          return user;
+        }
+      } catch (err: any) {
+        const status = err?.response?.status;
+        // If error is not 401/403 (e.g. temporary network offline or server error), return cached user
+        if (status !== 401 && status !== 403) {
+          const cachedUser = storage.getUser();
+          if (cachedUser) return cachedUser;
+        }
+      }
+    }
+
+    // 2. If access token missing or expired (401/403), attempt token refresh
     if (refreshToken) {
       try {
         const refreshed = await authService.refresh({ refresh_token: refreshToken });
         if (refreshed?.access_token) {
           storage.setAccessToken(refreshed.access_token);
+          const user = await authService.getProfile();
+          if (user) {
+            storage.setUser(user);
+            return user;
+          }
         }
       } catch {
-        // Auto-logout on refresh failure
+        // Refresh token failed or expired -> clean logout
         storage.clear();
         return null;
       }
     }
 
-    // 2. Fetch fresh user profile
-    try {
-      const user = await authService.getProfile();
-      storage.setUser(user);
-      return user;
-    } catch {
-      // Auto-logout on profile fetch failure
-      storage.clear();
-      return null;
-    }
+    // Fallback: if no valid token remains, clear storage
+    storage.clear();
+    return null;
   }
 
   async fetchProfile(): Promise<User | null> {
