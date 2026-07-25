@@ -4,16 +4,19 @@ import { paymentsApi } from "@/api/payments";
 import { PaymentStatusBadge } from "@/components/common/StatusBadge";
 import { formatPrice } from "@/context/cart-context";
 import { StatCard } from "@/components/common/StatCard";
-import { CircleDollarSign, ReceiptText, RotateCcw, XCircle } from "lucide-react";
+import { CircleDollarSign, ReceiptText, RotateCcw, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { storage } from "@/utils/storage";
+import { isJwtExpired } from "@/utils/session";
 import type { Payment, PaymentStatus } from "@/types/payment";
 
 function AdminPayments() {
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<PaymentStatus>("PENDING");
@@ -24,12 +27,32 @@ function AdminPayments() {
   }, []);
 
   async function loadPayments() {
+    const token = storage.getAccessToken();
+    if (!token || isJwtExpired(token)) {
+      toast.error("Admin access required");
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      }
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await paymentsApi.list();
+      setErrorMsg(null);
+      const data = await paymentsApi.listAdmin();
       setPaymentsList(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error("Failed to load payments data");
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 403 || status === 401) {
+        toast.error("Admin access required");
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        }
+      } else {
+        const msg = err?.response?.data?.detail || err?.response?.data?.error || err?.response?.data?.message || "Failed to load payments data";
+        setErrorMsg(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,22 +68,37 @@ function AdminPayments() {
     if (!selectedPayment) return;
     try {
       setUpdating(true);
+      const targetStatus = newStatus === ("COMPLETED" as any) ? "SUCCESS" : newStatus;
       await paymentsApi.updateStatus(selectedPayment.payment_id, {
-        status: newStatus,
+        status: targetStatus,
         transaction_id: selectedPayment.transaction_id || `TXN-${Date.now()}`,
       });
-      toast.success(`Payment status updated to ${newStatus}`);
+      toast.success(`Payment status updated to ${targetStatus}`);
       setEditOpen(false);
-      loadPayments();
+      await loadPayments();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to update payment status");
+      const status = err?.response?.status;
+      const responseData = err?.response?.data;
+      const apiMsg =
+        responseData?.detail ||
+        responseData?.message ||
+        responseData?.error ||
+        (typeof responseData === "string" ? responseData : null);
+
+      if (status === 403) {
+        toast.error("Admin access required");
+      } else if (status === 400) {
+        toast.error(apiMsg || "Invalid payment status provided");
+      } else {
+        toast.error(apiMsg || "Failed to update payment status");
+      }
     } finally {
       setUpdating(false);
     }
   }
 
   const collected = paymentsList
-    .filter((p) => p.status === "COMPLETED")
+    .filter((p) => p.status === "COMPLETED" || p.status === "SUCCESS")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const refunded = paymentsList.filter((p) => p.status === "REFUNDED").length;
@@ -97,10 +135,11 @@ function AdminPayments() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="SUCCESS">SUCCESS</SelectItem>
                     <SelectItem value="PENDING">PENDING</SelectItem>
-                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
                     <SelectItem value="FAILED">FAILED</SelectItem>
                     <SelectItem value="REFUNDED">REFUNDED</SelectItem>
+                    <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -120,9 +159,19 @@ function AdminPayments() {
       <div className="mt-6 overflow-hidden rounded-xl border bg-card shadow-soft">
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Loading payments...</div>
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm text-muted-foreground gap-2">
+              <Loader2 className="size-6 animate-spin text-primary" />
+              <span>Loading payment records...</span>
+            </div>
+          ) : errorMsg ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm gap-3">
+              <p className="text-destructive font-medium">{errorMsg}</p>
+              <Button variant="outline" size="sm" onClick={loadPayments} className="gap-2">
+                <RefreshCw className="size-4" /> Try Again
+              </Button>
+            </div>
           ) : paymentsList.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">No payment records found.</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">No payment records found.</div>
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">

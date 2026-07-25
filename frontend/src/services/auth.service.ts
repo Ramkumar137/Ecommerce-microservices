@@ -13,6 +13,10 @@ class AuthService {
 
     if (loginData.access_token) {
       storage.setAccessToken(loginData.access_token);
+      const role = String(loginData.user?.role || "").toUpperCase();
+      if (role === "ADMIN" || role === "ADMINISTRATOR") {
+        storage.setAdminToken(loginData.access_token);
+      }
     }
     if (loginData.refresh_token) {
       storage.setRefreshToken(loginData.refresh_token);

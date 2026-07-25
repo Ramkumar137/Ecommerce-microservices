@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { DollarSign, ShoppingBag, Package, ArrowRight, Layers } from "lucide-react";
+import { DollarSign, ShoppingBag, Package, ArrowRight, Layers, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { OrderStatusBadge } from "@/components/common/StatusBadge";
@@ -11,6 +11,9 @@ import { productsApi } from "@/api/products";
 import { inventoryApi } from "@/api/inventory";
 import { ordersApi } from "@/api/orders";
 import { paymentsApi } from "@/api/payments";
+import { storage } from "@/utils/storage";
+import { isJwtExpired } from "@/utils/session";
+import { toast } from "sonner";
 import type { Product } from "@/types/product";
 import type { InventoryItem } from "@/types/inventory";
 import type { Order } from "@/types/order";
@@ -23,36 +26,83 @@ function AdminDashboard() {
   const [orderList, setOrderList] = useState<Order[]>([]);
   const [paymentList, setPaymentList] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !isAdmin) {
-      setLoading(false);
-      return;
-    }
-
-    async function loadData() {
-      try {
-        setLoading(true);
-        const [prods, invs, ords, pymts] = await Promise.all([
-          productsApi.list().catch(() => []),
-          inventoryApi.list().catch(() => []),
-          ordersApi.list().catch(() => []),
-          paymentsApi.list().catch(() => []),
-        ]);
-
-        setProductList(Array.isArray(prods) ? prods : []);
-        setInventoryList(Array.isArray(invs) ? invs : []);
-        setOrderList(Array.isArray(ords) ? ords : []);
-        setPaymentList(Array.isArray(pymts) ? pymts : []);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, [isAuthenticated, isAdmin]);
 
+  async function loadData() {
+    const token = storage.getAccessToken();
+    if (!token || isJwtExpired(token)) {
+      toast.error("You do not have admin permission. Please login again.");
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      }
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      const [prods, invs, ords, pymts] = await Promise.all([
+        productsApi.list().catch(() => []),
+        inventoryApi.list().catch(() => []),
+        ordersApi.listAdmin().catch((err) => {
+          const status = err?.response?.status;
+          if (status === 403) {
+            const msg = "You do not have admin permission. Please login again.";
+            setErrorMsg(msg);
+            toast.error(msg);
+          } else if (status === 401) {
+            toast.error("Session expired. Redirecting to login...");
+            if (typeof window !== "undefined") {
+              window.location.href = "/auth/login";
+            }
+          }
+          return [];
+        }),
+        paymentsApi.listAdmin().catch((err) => {
+          const status = err?.response?.status;
+          if (status === 403) {
+            const msg = "You do not have admin permission. Please login again.";
+            setErrorMsg(msg);
+            toast.error(msg);
+          } else if (status === 401) {
+            toast.error("Session expired. Redirecting to login...");
+            if (typeof window !== "undefined") {
+              window.location.href = "/auth/login";
+            }
+          }
+          return [];
+        }),
+      ]);
+
+      setProductList(Array.isArray(prods) ? prods : []);
+      setInventoryList(Array.isArray(invs) ? invs : []);
+      setOrderList(Array.isArray(ords) ? ords : []);
+      setPaymentList(Array.isArray(pymts) ? pymts : []);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 403) {
+        const msg = "You do not have admin permission. Please login again.";
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (status === 401) {
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        }
+      } else {
+        const msg = err?.response?.data?.message || err?.response?.data?.detail || "Unable to reach service endpoints.";
+        setErrorMsg(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const totalRevenue = paymentList
-    .filter((p) => p.status === "COMPLETED")
+    .filter((p) => p.status === "SUCCESS" || p.status === ("COMPLETED" as any))
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const lowStock = productList.filter((p) => Number(p.stock) < 10).slice(0, 5);
@@ -182,9 +232,22 @@ function AdminDashboard() {
         </div>
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Loading dashboard data...</div>
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm text-muted-foreground gap-2">
+              <Loader2 className="size-6 animate-spin text-primary" />
+              <span>Loading dashboard data...</span>
+            </div>
+          ) : errorMsg ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm gap-3">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertCircle className="size-5" />
+                <span>{errorMsg}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadData} className="gap-2">
+                <RefreshCw className="size-4" /> Retry fetching data
+              </Button>
+            </div>
           ) : orderList.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">No orders recorded yet.</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">No orders recorded yet.</div>
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">

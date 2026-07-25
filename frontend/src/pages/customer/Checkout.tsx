@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { CreditCard, Landmark, Truck, Zap, Lock, Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { CreditCard, Landmark, Truck, Zap, Lock, Loader2, AlertCircle, ArrowRight, Check, QrCode, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +13,61 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
 
-function Section({ title, step, children }: { title: string; step: number; children: React.ReactNode }) {
+function Section({
+  step,
+  activeStep,
+  title,
+  summaryText,
+  onEdit,
+  children,
+}: {
+  step: number;
+  activeStep: number;
+  title: string;
+  summaryText?: string;
+  onEdit?: () => void;
+  children: React.ReactNode;
+}) {
+  const isCompleted = step < activeStep;
+  const isActive = step === activeStep;
+
   return (
-    <section className="rounded-xl border bg-card p-6">
-      <div className="flex items-center gap-3">
-        <span className="grid size-6 place-items-center rounded-full bg-foreground text-[11px] font-semibold text-background">
-          {step}
-        </span>
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <section className={`rounded-xl border bg-card p-6 transition-all ${isActive ? "ring-2 ring-primary/20 border-primary" : "opacity-85"}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span
+            className={`grid size-6 place-items-center rounded-full text-[11px] font-semibold ${
+              isCompleted
+                ? "bg-emerald-600 text-white"
+                : isActive
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {isCompleted ? <Check className="size-3.5" /> : step}
+          </span>
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        </div>
+        {isCompleted && onEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            className="text-xs text-primary hover:text-primary/80 font-medium"
+          >
+            Edit
+          </Button>
+        )}
       </div>
-      <div className="mt-5">{children}</div>
+
+      {isCompleted && summaryText && (
+        <div className="mt-2 pl-9 text-xs text-muted-foreground font-medium">
+          {summaryText}
+        </div>
+      )}
+
+      {isActive && <div className="mt-5">{children}</div>}
     </section>
   );
 }
@@ -30,6 +75,7 @@ function Section({ title, step, children }: { title: string; step: number; child
 function Checkout() {
   const { user, isAuthenticated } = useAuth();
   const { items, subtotal, clear } = useCart();
+  const [activeStep, setActiveStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
 
@@ -86,11 +132,53 @@ function Checkout() {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
+  const handleNextStep = (step: number) => {
+    if (step === 1) {
+      if (!formData.email.trim() || !formData.firstName.trim() || !formData.lastName.trim()) {
+        toast.error("Please fill out all contact information fields.");
+        return;
+      }
+      setActiveStep(2);
+    } else if (step === 2) {
+      if (
+        !formData.address.trim() ||
+        !formData.city.trim() ||
+        !formData.zip.trim() ||
+        !formData.state.trim() ||
+        !formData.country.trim()
+      ) {
+        toast.error("Please fill out all shipping address fields.");
+        return;
+      }
+      setActiveStep(3);
+    } else if (step === 3) {
+      setActiveStep(4);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (items.length === 0) {
       toast.error("Your cart is empty");
+      return;
+    }
+
+    if (!formData.email.trim() || !formData.firstName.trim() || !formData.lastName.trim()) {
+      setActiveStep(1);
+      toast.error("Please complete contact information.");
+      return;
+    }
+
+    if (
+      !formData.address.trim() ||
+      !formData.city.trim() ||
+      !formData.zip.trim() ||
+      !formData.state.trim() ||
+      !formData.country.trim()
+    ) {
+      setActiveStep(2);
+      toast.error("Please complete shipping address.");
       return;
     }
 
@@ -101,63 +189,162 @@ function Checkout() {
       // Step 1: Convert Cart -> Order via Orders API
       setProcessingStep("Creating order...");
       const orderPayload = {
+        contact: {
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+        },
+        shipping: {
+          address: formData.address,
+          city: formData.city,
+          zip: formData.zip,
+          state: formData.state,
+          country: formData.country,
+        },
+        delivery: {
+          method: shippingMethod,
+          cost: shippingCost,
+        },
         items: items.map((i) => ({
           product_id: i.product.product_id,
           quantity: i.quantity,
+          price: Number(i.product.price || 0),
         })),
+        total_amount: total,
       };
 
-      const order = await ordersApi.create(orderPayload);
-      if (!order || !order.order_id) {
-        throw new Error("Failed to create order");
-      }
-
-      // Step 2: Initiate Payment via Payment API
-      setProcessingStep("Initiating payment...");
-      let payment;
+      console.log("[1. Create Order Request]", orderPayload);
+      let order: any;
       try {
-        payment = await paymentsApi.create({
-          order_id: order.order_id,
-          payment_method: paymentMethod,
-        });
+        order = await ordersApi.create(orderPayload);
+        console.log("[1. Create Order Response]", order);
+      } catch (orderErr: any) {
+        const responseData = orderErr?.response?.data;
+        const apiMsg =
+          responseData?.detail ||
+          responseData?.message ||
+          responseData?.error ||
+          (typeof responseData === "string" ? responseData : orderErr.message) ||
+          "Order creation service unavailable";
+        console.error("[Order API Error]", orderErr?.response?.status, responseData);
+        const exactError = `Order Creation Failed: ${apiMsg}`;
+        setError(exactError);
+        toast.error(exactError);
+        return;
+      }
+
+      const createdOrderId = order?.order_id || order?.id || order?._id;
+      if (!createdOrderId) {
+        const exactError = "Order Creation Failed: Missing order_id in server response";
+        console.error("[Order API Error]", exactError, order);
+        setError(exactError);
+        toast.error(exactError);
+        return;
+      }
+
+      const localOrderStatus = "PLACED";
+
+      // Step 2: Initiate Payment via Payments API
+      setProcessingStep("Processing payment...");
+      const paymentPayload = {
+        order_id: createdOrderId,
+        payment_method: paymentMethod,
+        amount: total,
+      };
+
+      console.log("[2. Create Payment Request]", paymentPayload);
+      let payment: any;
+      try {
+        payment = await paymentsApi.create(paymentPayload);
+        console.log("[2. Create Payment Response]", payment);
       } catch (payErr: any) {
-        const payErrMsg =
-          payErr.response?.data?.message || payErr.message || "Payment initiation failed.";
-        throw new Error(`Payment error: ${payErrMsg} (Order #${order.order_id} created)`);
+        const responseData = payErr?.response?.data;
+        const apiMsg =
+          responseData?.detail ||
+          responseData?.message ||
+          responseData?.error ||
+          (typeof responseData === "string" ? responseData : payErr.message) ||
+          "Payment initialization service unavailable";
+        console.error("[Payment API Error]", payErr?.response?.status, responseData);
+
+        const exactError = `Payment Initiation Failed: ${apiMsg}`;
+        setError(exactError);
+        toast.error(exactError);
+        return;
       }
 
-      // Step 3: Update Payment Status to COMPLETED
-      setProcessingStep("Completing payment transaction...");
-      if (payment && payment.payment_id) {
-        try {
-          await paymentsApi.updateStatus(payment.payment_id, {
-            status: "COMPLETED",
-            transaction_id: `TXN-${Date.now()}`,
-          });
-        } catch (statusErr: any) {
-          throw new Error("Payment status verification failed.");
-        }
+      const paymentId = payment?.payment_id || payment?.id;
+      if (!paymentId && paymentMethod !== "COD") {
+        const exactError = "Payment Initiation Failed: Missing payment_id in server response";
+        console.error("[Payment API Error]", exactError, payment);
+        setError(exactError);
+        toast.error(exactError);
+        return;
       }
 
-      // On Success: Clear cart & navigate to order success page
-      setProcessingStep("Finalizing checkout...");
-      toast.success("Order & Payment completed successfully!");
+      // Map Payment Status locally based on payment API response or COD method
+      const rawPayStatus = String(payment?.status || "").toUpperCase();
+      let localPaymentStatus = "SUCCESS";
+      if (rawPayStatus === "PENDING" && paymentMethod !== "COD") {
+        localPaymentStatus = "PENDING";
+      } else if (rawPayStatus === "FAILED") {
+        const exactError = "Payment Failed: Transaction rejected by payment provider";
+        setError(exactError);
+        toast.error(exactError);
+        return;
+      }
+
+      // Step 3: Finalize Order on Frontend & Redirect
+      setProcessingStep("Finalizing order...");
+      toast.success("Order Placed Successfully!");
       await clear();
+      console.log("Cart cleared after successful order & payment creation", {
+        orderId: createdOrderId,
+        orderStatus: localOrderStatus,
+        paymentStatus: localPaymentStatus,
+      });
 
       navigate({
         to: "/order-success",
-        search: { orderId: order.order_id },
+        search: { orderId: createdOrderId },
       });
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error || err.response?.data?.message || err.message || "Checkout failed.";
-      setError(errorMessage);
-      toast.error("Checkout process encountered an error");
+      console.error("[Unexpected Checkout Error]", err);
+      const exactError =
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        (typeof err?.response?.data === "string" ? err.response.data : err?.message) ||
+        "Unexpected error occurred during checkout";
+      setError(exactError);
+      toast.error(exactError);
     } finally {
       setLoading(false);
       setProcessingStep(null);
     }
   };
+
+  const contactSummary = [
+    `${formData.firstName} ${formData.lastName}`.trim(),
+    formData.email,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const shippingSummary = [
+    formData.address,
+    formData.city,
+    formData.state,
+    formData.zip,
+    formData.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const deliverySummary =
+    shippingMethod === "express"
+      ? "Express Shipping (1–2 business days · $14.99)"
+      : `Standard Shipping (4–6 business days · ${subtotal > 50 ? "Free" : "$6.99"})`;
 
   return (
     <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
@@ -175,7 +362,13 @@ function Checkout() {
 
       <form onSubmit={handleSubmit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_400px]">
         <div className="space-y-5">
-          <Section step={1} title="Contact information">
+          <Section
+            step={1}
+            activeStep={activeStep}
+            title="Contact information"
+            summaryText={contactSummary}
+            onEdit={() => setActiveStep(1)}
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="email">Email</Label>
@@ -209,10 +402,21 @@ function Checkout() {
                   onChange={handleInputChange}
                 />
               </div>
+              <div className="sm:col-span-2 mt-2">
+                <Button type="button" onClick={() => handleNextStep(1)} className="w-full sm:w-auto gap-2">
+                  Continue to Shipping <ArrowRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </Section>
 
-          <Section step={2} title="Shipping address">
+          <Section
+            step={2}
+            activeStep={activeStep}
+            title="Shipping address"
+            summaryText={shippingSummary}
+            onEdit={() => setActiveStep(2)}
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="address">Address</Label>
@@ -265,10 +469,24 @@ function Checkout() {
                   onChange={handleInputChange}
                 />
               </div>
+              <div className="sm:col-span-2 mt-2 flex flex-wrap gap-3">
+                <Button type="button" onClick={() => handleNextStep(2)} className="w-full sm:w-auto gap-2">
+                  Continue to Delivery <ArrowRight className="size-4" />
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setActiveStep(1)}>
+                  Back
+                </Button>
+              </div>
             </div>
           </Section>
 
-          <Section step={3} title="Delivery method">
+          <Section
+            step={3}
+            activeStep={activeStep}
+            title="Delivery method"
+            summaryText={deliverySummary}
+            onEdit={() => setActiveStep(3)}
+          >
             <RadioGroup value={shippingMethod} onValueChange={setShippingMethod} className="grid gap-3 sm:grid-cols-2">
               <label
                 htmlFor="std"
@@ -303,45 +521,142 @@ function Checkout() {
                 </div>
               </label>
             </RadioGroup>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Button type="button" onClick={() => handleNextStep(3)} className="w-full sm:w-auto gap-2">
+                Continue to Payment <ArrowRight className="size-4" />
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setActiveStep(2)}>
+                Back
+              </Button>
+            </div>
           </Section>
 
-          <Section step={4} title="Payment">
+          <Section
+            step={4}
+            activeStep={activeStep}
+            title="Payment"
+          >
             <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-3 sm:grid-cols-2">
               <label
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 ${
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
                   paymentMethod === "CARD" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                 }`}
               >
                 <RadioGroupItem value="CARD" />
-                <CreditCard className="size-4" />
-                <span className="text-sm font-medium">Credit card</span>
+                <CreditCard className="size-4 text-primary" />
+                <span className="text-sm font-medium">Credit/Debit Card</span>
               </label>
               <label
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 ${
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
+                  paymentMethod === "UPI" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+              >
+                <RadioGroupItem value="UPI" />
+                <QrCode className="size-4 text-primary" />
+                <span className="text-sm font-medium">UPI</span>
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
                   paymentMethod === "BANK_TRANSFER" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                 }`}
               >
                 <RadioGroupItem value="BANK_TRANSFER" />
-                <Landmark className="size-4" />
-                <span className="text-sm font-medium">Bank transfer</span>
+                <Landmark className="size-4 text-primary" />
+                <span className="text-sm font-medium">Netbanking</span>
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
+                  paymentMethod === "COD" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+              >
+                <RadioGroupItem value="COD" />
+                <Banknote className="size-4 text-primary" />
+                <span className="text-sm font-medium">Cash on Delivery</span>
               </label>
             </RadioGroup>
+
+            {/* Conditional Input Views Based on Selected Method */}
             {paymentMethod === "CARD" && (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 rounded-lg border bg-muted/20 p-4">
                 <div className="sm:col-span-2">
                   <Label htmlFor="cn">Card number</Label>
-                  <Input id="cn" placeholder="1234 5678 9012 3456" className="mt-1.5" />
+                  <Input id="cn" placeholder="1234 5678 9012 3456" className="mt-1.5 bg-background" />
                 </div>
                 <div>
                   <Label htmlFor="exp2">Expiration</Label>
-                  <Input id="exp2" placeholder="MM / YY" className="mt-1.5" />
+                  <Input id="exp2" placeholder="MM / YY" className="mt-1.5 bg-background" />
                 </div>
                 <div>
                   <Label htmlFor="cvv">CVC</Label>
-                  <Input id="cvv" placeholder="123" className="mt-1.5" />
+                  <Input id="cvv" placeholder="123" className="mt-1.5 bg-background" />
                 </div>
               </div>
             )}
+
+            {paymentMethod === "UPI" && (
+              <div className="mt-4 rounded-lg border bg-muted/20 p-4">
+                <Label htmlFor="upiId">VPA / UPI ID</Label>
+                <Input id="upiId" placeholder="username@upi or mobile@paytm" className="mt-1.5 bg-background" />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A payment request will be sent to your UPI app (Google Pay, PhonePe, Paytm, etc.).
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === "BANK_TRANSFER" && (
+              <div className="mt-4 rounded-lg border bg-muted/20 p-4">
+                <Label htmlFor="bankSelect">Select Bank</Label>
+                <select
+                  id="bankSelect"
+                  className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="HDFC">HDFC Bank</option>
+                  <option value="ICICI">ICICI Bank</option>
+                  <option value="SBI">State Bank of India (SBI)</option>
+                  <option value="AXIS">Axis Bank</option>
+                  <option value="KOTAK">Kotak Mahindra Bank</option>
+                  <option value="PNB">Punjab National Bank</option>
+                </select>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  You will be redirected to your bank's portal to complete netbanking authentication.
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === "COD" && (
+              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-emerald-700 dark:text-emerald-400">
+                <div className="flex items-center gap-2">
+                  <Banknote className="size-4" />
+                  <span className="text-sm font-semibold">Cash on Delivery</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pay with cash upon delivery. No additional online payment required.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full sm:w-auto font-semibold gap-2"
+                disabled={items.length === 0 || loading}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" />
+                    {processingStep || "Processing..."}
+                  </span>
+                ) : (
+                  <>
+                    <Lock className="size-4" /> Place Order ({formatPrice(total)})
+                  </>
+                )}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setActiveStep(3)}>
+                Back to Delivery
+              </Button>
+            </div>
           </Section>
         </div>
 

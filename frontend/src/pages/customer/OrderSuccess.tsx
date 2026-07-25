@@ -4,6 +4,7 @@ import { CheckCircle2, Package, Mail, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ordersApi } from "@/api/orders";
 import { formatPrice } from "@/context/cart-context";
+import { getItemPricing } from "./Orders";
 import type { Order } from "@/types/order";
 
 function OrderSuccess() {
@@ -58,12 +59,17 @@ function OrderSuccess() {
           <div className="mt-4 space-y-3">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Order Summary</p>
             <ul className="divide-y rounded-lg border bg-surface px-3">
-              {order.items?.map((it, idx) => (
-                <li key={idx} className="flex justify-between py-2.5 text-sm">
-                  <span className="font-medium">{it.product_name || `Product #${it.product_id}`} × {it.quantity}</span>
-                  <span className="text-muted-foreground">{formatPrice(Number(it.total_price || it.price || 0))}</span>
-                </li>
-              ))}
+              {order.items?.map((it, idx) => {
+                const pricing = getItemPricing(it);
+                return (
+                  <li key={idx} className="flex justify-between py-2.5 text-sm">
+                    <span className="font-medium">
+                      {it.product_name || `Product #${it.product_id}`} × {pricing.quantity}
+                    </span>
+                    <span className="font-medium text-foreground">{pricing.displayText}</span>
+                  </li>
+                );
+              })}
             </ul>
             <div className="flex justify-between pt-2 text-sm font-semibold">
               <span>Total Paid</span>

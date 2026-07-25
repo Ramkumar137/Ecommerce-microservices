@@ -1,4 +1,5 @@
 const ACCESS_TOKEN = "access_token";
+const ADMIN_ACCESS_TOKEN = "admin_access_token";
 const REFRESH_TOKEN = "refresh_token";
 const USER = "user";
 
@@ -7,8 +8,43 @@ export const storage = {
     localStorage.setItem(ACCESS_TOKEN, token);
   },
 
-  getAccessToken() {
-    return localStorage.getItem(ACCESS_TOKEN);
+  setAdminToken(token: string) {
+    localStorage.setItem(ADMIN_ACCESS_TOKEN, token);
+    localStorage.setItem(ACCESS_TOKEN, token);
+  },
+
+  getAdminToken(): string | null {
+    if (typeof localStorage === "undefined") return null;
+    return (
+      localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
+      localStorage.getItem("admin_token") ||
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem(ACCESS_TOKEN) ||
+      localStorage.getItem("token")
+    );
+  },
+
+  getAccessToken(): string | null {
+    if (typeof localStorage === "undefined") return null;
+
+    // If request originates from an admin route, prioritize admin_access_token
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+      const adminToken =
+        localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
+        localStorage.getItem("admin_token") ||
+        localStorage.getItem("adminToken");
+      if (adminToken) return adminToken;
+    }
+
+    return (
+      localStorage.getItem(ACCESS_TOKEN) ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("jwt") ||
+      localStorage.getItem("authToken") ||
+      localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
+      sessionStorage.getItem(ACCESS_TOKEN) ||
+      sessionStorage.getItem("token")
+    );
   },
 
   setRefreshToken(token: string) {
@@ -16,6 +52,7 @@ export const storage = {
   },
 
   getRefreshToken() {
+    if (typeof localStorage === "undefined") return null;
     return localStorage.getItem(REFRESH_TOKEN);
   },
 
@@ -24,6 +61,7 @@ export const storage = {
   },
 
   getUser() {
+    if (typeof localStorage === "undefined") return null;
     const user = localStorage.getItem(USER);
     return user ? JSON.parse(user) : null;
   },
@@ -31,6 +69,8 @@ export const storage = {
   clear() {
     try {
       localStorage.removeItem(ACCESS_TOKEN);
+      localStorage.removeItem(ADMIN_ACCESS_TOKEN);
+      localStorage.removeItem("admin_token");
       localStorage.removeItem(REFRESH_TOKEN);
       localStorage.removeItem(USER);
       localStorage.clear();

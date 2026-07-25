@@ -24,6 +24,10 @@ class OrderItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(
         validators=[validate_quantity]
     )
+    price = serializers.FloatField(required=False, allow_null=True)
+    unit_price = serializers.FloatField(required=False, allow_null=True)
+    product_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    subtotal = serializers.FloatField(required=False, allow_null=True)
 
 
 class CreateOrderSerializer(serializers.Serializer):
@@ -31,6 +35,12 @@ class CreateOrderSerializer(serializers.Serializer):
     items = OrderItemSerializer(
         many=True
     )
+    contact = serializers.DictField(required=False, allow_null=True)
+    shipping = serializers.DictField(required=False, allow_null=True)
+    shipping_address = serializers.DictField(required=False, allow_null=True)
+    delivery = serializers.DictField(required=False, allow_null=True)
+    totalAmount = serializers.FloatField(required=False, allow_null=True)
+    total_amount = serializers.FloatField(required=False, allow_null=True)
 
     def validate_items(self, value):
         return validate_order_items(value)
@@ -47,19 +57,15 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
 class OrderResponseSerializer(serializers.Serializer):
 
     order_id = serializers.CharField(read_only=True)
-
-    user_id = serializers.CharField()
-
+    user_id = serializers.CharField(required=False, allow_null=True)
+    email = serializers.CharField(required=False, allow_null=True)
+    first_name = serializers.CharField(required=False, allow_null=True)
+    last_name = serializers.CharField(required=False, allow_null=True)
     status = serializers.CharField()
-
     total_amount = serializers.FloatField()
-
-    items = OrderItemSerializer(
-        many=True
-    )
-
+    shipping_address = serializers.DictField(required=False, allow_null=True)
+    items = OrderItemSerializer(many=True)
     created_at = serializers.DateTimeField(read_only=True)
-
     updated_at = serializers.DateTimeField(read_only=True)
 
 

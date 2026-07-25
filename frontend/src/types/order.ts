@@ -7,7 +7,7 @@ export interface OrderItem {
   total_price?: number;
 }
 
-export type OrderStatus = "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type OrderStatus = "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "SUCCESS" | "FAILED";
 
 export interface Order {
   order_id: string;
@@ -20,10 +20,28 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
+  contact?: {
+    email: string;
+    first_name: string;
+    last_name: string;
+  };
+  shipping?: {
+    address: string;
+    city: string;
+    zip: string;
+    state: string;
+    country: string;
+  };
+  delivery?: {
+    method: string;
+    cost: number;
+  };
   items: {
     product_id: string;
     quantity: number;
+    price?: number;
   }[];
+  total_amount?: number;
 }
 
 export interface UpdateOrderStatusRequest {

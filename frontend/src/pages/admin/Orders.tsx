@@ -3,12 +3,15 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { ordersApi } from "@/api/orders";
 import { OrderStatusBadge } from "@/components/common/StatusBadge";
 import { formatPrice } from "@/context/cart-context";
+import { formatFriendlyDate } from "../customer/Orders";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { storage } from "@/utils/storage";
+import { isJwtExpired } from "@/utils/session";
 import type { Order, OrderStatus } from "@/types/order";
 
 function AdminOrders() {
@@ -17,6 +20,7 @@ function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>("PENDING");
 
@@ -25,12 +29,32 @@ function AdminOrders() {
   }, []);
 
   async function loadOrders() {
+    const token = storage.getAccessToken();
+    if (!token || isJwtExpired(token)) {
+      toast.error("Admin access required");
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      }
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await ordersApi.list();
+      setErrorMsg(null);
+      const data = await ordersApi.listAdmin();
       setOrdersList(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error("Failed to load orders");
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 403 || status === 401) {
+        toast.error("Admin access required");
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        }
+      } else {
+        const msg = err?.response?.data?.detail || err?.response?.data?.error || err?.response?.data?.message || "Failed to load orders";
+        setErrorMsg(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,23 +69,51 @@ function AdminOrders() {
       });
       toast.success(`Order status updated to ${newStatus}`);
       setSelected(updatedOrder);
-      loadOrders();
+      await loadOrders();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to update order status");
+      const status = err?.response?.status;
+      const responseData = err?.response?.data;
+      const apiMsg =
+        responseData?.detail ||
+        responseData?.message ||
+        responseData?.error ||
+        (typeof responseData === "string" ? responseData : null);
+
+      if (status === 403) {
+        toast.error("Admin permission required");
+      } else if (status === 400) {
+        toast.error(apiMsg || "Invalid order status provided");
+      } else {
+        toast.error(apiMsg || "Failed to update order status");
+      }
     } finally {
       setUpdating(false);
     }
   }
 
-  const filtered = ordersList.filter((o) => {
-    const matchesStatus =
-      statusFilter === "all" || o.status?.toUpperCase() === statusFilter.toUpperCase();
-    const matchesSearch =
-      o.order_id.toLowerCase().includes(q.toLowerCase()) ||
-      o.user_id.toLowerCase().includes(q.toLowerCase());
+  const filtered = ordersList
+    .filter((o) => {
+      const matchesStatus =
+        statusFilter === "all" || o.status?.toUpperCase() === statusFilter.toUpperCase();
+      const matchesSearch =
+        o.order_id.toLowerCase().includes(q.toLowerCase()) ||
+        o.user_id.toLowerCase().includes(q.toLowerCase());
 
-    return matchesStatus && matchesSearch;
-  });
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      const rawA = a.created_at || (a as any).placed_at || (a as any).date;
+      const rawB = b.created_at || (b as any).placed_at || (b as any).date;
+
+      const timeA = rawA ? new Date(rawA).getTime() : 0;
+      const timeB = rawB ? new Date(rawB).getTime() : 0;
+
+      if (isNaN(timeA) && isNaN(timeB)) return 0;
+      if (isNaN(timeA)) return 1;
+      if (isNaN(timeB)) return -1;
+
+      return timeB - timeA;
+    });
 
   return (
     <>
@@ -84,9 +136,9 @@ function AdminOrders() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="PENDING">PENDING</SelectItem>
-            <SelectItem value="PROCESSING">PROCESSING</SelectItem>
-            <SelectItem value="SHIPPED">SHIPPED</SelectItem>
-            <SelectItem value="DELIVERED">DELIVERED</SelectItem>
+            <SelectItem value="SUCCESS">SUCCESS</SelectItem>
+            <SelectItem value="FAILED">FAILED</SelectItem>
+            <SelectItem value="REFUNDED">REFUNDED</SelectItem>
             <SelectItem value="CANCELLED">CANCELLED</SelectItem>
           </SelectContent>
         </Select>
@@ -96,8 +148,10 @@ function AdminOrders() {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Loading orders...</div>
+          ) : errorMsg ? (
+            <div className="p-8 text-center text-sm text-destructive font-medium">{errorMsg}</div>
           ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">No orders found.</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">No customer orders found.</div>
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -121,8 +175,8 @@ function AdminOrders() {
                   >
                     <td className="px-5 py-3.5 font-mono text-xs font-semibold">{o.order_id}</td>
                     <td className="px-5 py-3.5 text-xs text-muted-foreground">{o.user_id}</td>
-                    <td className="px-5 py-3.5 text-muted-foreground">
-                      {o.created_at ? new Date(o.created_at).toLocaleDateString() : "Recent"}
+                    <td className="px-5 py-3.5 text-muted-foreground font-medium">
+                      {formatFriendlyDate(o.created_at || (o as any).placed_at || (o as any).date)}
                     </td>
                     <td className="px-5 py-3.5">
                       <OrderStatusBadge status={o.status as any} />
@@ -183,9 +237,9 @@ function AdminOrders() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PENDING">PENDING</SelectItem>
-                      <SelectItem value="PROCESSING">PROCESSING</SelectItem>
-                      <SelectItem value="SHIPPED">SHIPPED</SelectItem>
-                      <SelectItem value="DELIVERED">DELIVERED</SelectItem>
+                      <SelectItem value="SUCCESS">SUCCESS</SelectItem>
+                      <SelectItem value="FAILED">FAILED</SelectItem>
+                      <SelectItem value="REFUNDED">REFUNDED</SelectItem>
                       <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                     </SelectContent>
                   </Select>

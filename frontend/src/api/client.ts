@@ -8,6 +8,7 @@ import { handleSessionExpired, isJwtExpired } from "@/utils/session";
  */
 export const apiClient = axios.create({
   timeout: ENV.API_TIMEOUT,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -30,25 +31,49 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// 1. Request Interceptor: Pre-validate JWT Expiry & Attach Access Token securely
+// 1. Request Interceptor: Pre-validate JWT Expiry, Attach Bearer Token & CSRF Token Header
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = storage.getAccessToken();
+    let token = storage.getAccessToken();
+
+    // Fallback: Check cookies if not found in storage
+    if (!token && typeof document !== "undefined") {
+      const cookieMatch = document.cookie.match(/(?:access_token|token|jwt)=([^;]+)/);
+      if (cookieMatch && cookieMatch[1]) {
+        token = cookieMatch[1];
+      }
+    }
+
     const refreshToken = storage.getRefreshToken();
 
     if (token) {
-      // Check if access token is expired prior to request
-      if (isJwtExpired(token)) {
-        // If refresh token is also expired or missing, trigger immediate smooth auto-logout
-        if (!refreshToken || isJwtExpired(refreshToken)) {
-          handleSessionExpired();
-          return Promise.reject(new axios.Cancel("Session expired"));
-        }
+      // Pre-validate JWT expiry
+      if (isJwtExpired(token) && (!refreshToken || isJwtExpired(refreshToken))) {
+        handleSessionExpired();
+        return Promise.reject(new axios.Cancel("Session expired"));
       }
+
       if (config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+        config.headers["Content-Type"] = "application/json";
+      }
+    } else if (config.headers) {
+      config.headers["Content-Type"] = "application/json";
+    }
+
+    // Attach Django CSRF Token if csrftoken cookie exists
+    if (typeof document !== "undefined" && config.headers) {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      if (match && match[1]) {
+        config.headers["X-CSRFToken"] = match[1];
       }
     }
+
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+      headers: config.headers ? { Authorization: config.headers.Authorization } : {},
+      data: config.data,
+    });
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -120,8 +145,21 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle 403 Forbidden due to invalid/expired token or revoked credentials
+    // Handle 403 Forbidden due to permission or token issues
     if (status === 403) {
+      console.error("[API 403 Error Detail]", {
+        url: originalRequest.url,
+        method: originalRequest.method,
+        status: error.response?.status,
+        data: responseData,
+      });
+
+      // User notification for admin authorization issues
+      if (typeof window !== "undefined") {
+        const { toast } = require("sonner");
+        toast.error("Admin access required", { id: "admin-access-required-toast" });
+      }
+
       const errorMsg =
         typeof responseData === "string"
           ? responseData
@@ -132,7 +170,6 @@ apiClient.interceptors.response.use(
         (errorMsg.toLowerCase().includes("token") ||
           errorMsg.toLowerCase().includes("expired") ||
           errorMsg.toLowerCase().includes("unauthorized") ||
-          errorMsg.toLowerCase().includes("permission denied") ||
           errorMsg.toLowerCase().includes("invalid signature"));
 
       if (isTokenError) {

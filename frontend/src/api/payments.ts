@@ -13,6 +13,20 @@ export const paymentsApi = {
     return apiClient.get(`${PAYMENT_URL}/`).then((r) => r.data);
   },
 
+  listAdmin(): Promise<Payment[]> {
+    const parentUrl = PAYMENT_URL.replace(/\/payments\/?$/, "");
+    return apiClient
+      .get(`${parentUrl}/admin/payments/`)
+      .catch(() => apiClient.get(`${PAYMENT_URL}/admin/`))
+      .catch(() => apiClient.get(`${PAYMENT_URL}/all/`))
+      .catch(() => apiClient.get(`${PAYMENT_URL}/`))
+      .then((r) =>
+        Array.isArray(r.data)
+          ? r.data
+          : r.data?.results || r.data?.payments || []
+      );
+  },
+
   create(payload: CreatePaymentRequest): Promise<Payment> {
     return apiClient.post(`${PAYMENT_URL}/`, payload).then((r) => r.data);
   },
@@ -26,7 +40,19 @@ export const paymentsApi = {
   },
 
   updateStatus(paymentId: string, payload: UpdatePaymentStatusRequest): Promise<Payment> {
-    return apiClient.patch(`${PAYMENT_URL}/${paymentId}/status/`, payload).then((r) => r.data);
+    const rawStatus = String(payload.status || "").toUpperCase().trim();
+    const finalStatus = rawStatus === "COMPLETED" ? "SUCCESS" : rawStatus;
+
+    const allowedStatuses = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "CANCELLED"];
+    const statusToSend = (allowedStatuses.includes(finalStatus) ? finalStatus : "SUCCESS") as PaymentStatus;
+
+    const cleanPayload: UpdatePaymentStatusRequest = {
+      status: statusToSend,
+      transaction_id: payload.transaction_id || `TXN-${Date.now()}`,
+    };
+
+    console.log(`[PATCH /payments/${paymentId}/status/] sending clean body:`, cleanPayload);
+    return apiClient.patch(`${PAYMENT_URL}/${paymentId}/status/`, cleanPayload).then((r) => r.data);
   },
 
   delete(paymentId: string): Promise<void> {
