@@ -18,26 +18,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Synchronously rehydrate user from storage on mount if token is valid
+  // Synchronously rehydrate user from storage on client mount if token is valid
   const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === "undefined") return null;
     try {
       const token = storage.getAccessToken();
-      if (!token || isJwtExpired(token)) {
-        storage.clear();
-        return null;
-      }
+      if (!token || isJwtExpired(token)) return null;
       return storage.getUser();
     } catch {
-      storage.clear();
       return null;
     }
   });
   const [loading, setLoading] = useState(true);
 
-  // App load initialization: Session verification & token validation
+  // App load initialization: Session verification & token validation (Client side only)
   useEffect(() => {
     async function initAuth() {
       try {
+        const token = storage.getAccessToken();
+        if (token && !isJwtExpired(token)) {
+          const cachedUser = storage.getUser();
+          if (cachedUser) {
+            setUser(cachedUser);
+          }
+        }
         const userSession = await AuthService.initializeAuthSession();
         setUser(userSession);
       } catch {

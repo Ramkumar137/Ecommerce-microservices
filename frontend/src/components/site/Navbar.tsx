@@ -5,6 +5,7 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
+import { useMounted } from "@/hooks/useMounted";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getUserInitials } from "@/utils/user";
 import {
@@ -23,17 +24,23 @@ const baseNav = [
 ];
 
 export function Navbar() {
+  const mounted = useMounted();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navigation = isAuthenticated
+  // Defer auth-dependent UI rendering until after component mounts on client to guarantee SSR parity
+  const isAuth = mounted && isAuthenticated;
+  const isAdm = mounted && isAdmin;
+  const cartCount = mounted ? count : 0;
+
+  const navigation = isAuth
     ? [...baseNav, { to: "/orders", label: "Orders" }]
     : baseNav;
 
-  const initials = getUserInitials(user);
-  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+  const initials = isAuth ? getUserInitials(user) : "";
+  const fullName = isAuth ? [user?.first_name, user?.last_name].filter(Boolean).join(" ") : "";
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -106,13 +113,13 @@ export function Navbar() {
             />
           </div>
 
-          {!isAdmin && (
+          {!isAdm && (
             <Button asChild variant="ghost" size="icon" aria-label="Cart" className="relative">
               <Link to="/cart">
                 <ShoppingBag className="size-5" />
-                {count > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                    {count}
+                    {cartCount}
                   </span>
                 )}
               </Link>
@@ -121,7 +128,7 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              {isAuthenticated ? (
+              {isAuth ? (
                 <Button variant="ghost" className="relative size-9 rounded-full p-0" aria-label="User menu">
                   <Avatar className="size-9 border bg-muted">
                     <AvatarFallback className="bg-primary font-semibold text-xs text-primary-foreground">
@@ -137,7 +144,7 @@ export function Navbar() {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-60">
-              {!isAuthenticated ? (
+              {!isAuth ? (
                 <>
                   <DropdownMenuItem asChild>
                     <Link to="/auth/login">Sign In</Link>

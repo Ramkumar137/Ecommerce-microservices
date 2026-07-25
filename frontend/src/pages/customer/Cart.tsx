@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Minus, Plus, ShoppingBag, Trash2, AlertCircle, RefreshCw, Tag, ArrowRight, ShieldAlert, Lock } from "lucide-react";
 import { useCart, formatPrice } from "@/context/cart-context";
@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
+
+function getProductId(product: any): string {
+  if (!product) return "";
+  return String(product.product_id || product.id || product._id || "").trim();
+}
 
 function CartItemRow({
   item,
@@ -19,7 +24,7 @@ function CartItemRow({
   onRemove: (id: string) => void;
 }) {
   const [imgError, setImgError] = useState(false);
-  const pid = item.product.product_id || item.product.id;
+  const pid = getProductId(item.product);
   const unitPrice = Number(item.product.price || 0);
   const rowTotal = unitPrice * item.quantity;
 
@@ -109,10 +114,20 @@ function CartItemRow({
 }
 
 function CartPage() {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, loading: authLoading } = useAuth();
   const { items, subtotal, setQty, remove, clear, loading, error, refreshCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+
+  // Persistence on Page Reload: Fetch cart from backend DB on mount & poll every 10s
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || isAdmin) return;
+    refreshCart();
+    const interval = setInterval(() => {
+      refreshCart();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [authLoading, isAuthenticated, isAdmin, refreshCart]);
 
   const shipping = subtotal > 50 || subtotal === 0 ? 0 : 6.99;
   const tax = subtotal * 0.08;
@@ -166,7 +181,7 @@ function CartPage() {
   }
 
   // Guest view: Replace ENTIRE cart content with centered UI message card
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !authLoading) {
     return (
       <div className="flex min-h-[65vh] w-full items-center justify-center px-4 py-12">
         <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-soft text-center sm:p-10">
@@ -196,7 +211,7 @@ function CartPage() {
     );
   }
 
-  if (loading && items.length === 0) {
+  if ((loading || authLoading) && items.length === 0) {
     return (
       <div className="w-full px-4 py-12 sm:px-6 lg:px-10">
         <PageHeader title="Shopping cart" description="Loading your cart..." />
@@ -299,7 +314,7 @@ function CartPage() {
             <ul className="divide-y">
               {items.map((it) => (
                 <CartItemRow
-                  key={it.product.product_id || (it.product as any).id}
+                  key={getProductId(it.product)}
                   item={it}
                   onSetQty={setQty}
                   onRemove={remove}

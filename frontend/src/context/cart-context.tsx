@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cartApi } from "@/api/cart";
+import { productsService } from "@/api/products";
 import { useAuth } from "./auth-context";
 import { GuestAuthModal } from "@/components/common/GuestAuthModal";
 import type { Product } from "@/types/product";
@@ -63,60 +64,77 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return "commerce.cart.guest";
   }, [isAuthenticated, userId]);
 
-  // 1. Initial Load & Switch from LocalStorage per user identity (Only when authenticated)
+  // 1. Reset items when unauthenticated (Wait for authLoading to complete)
   useEffect(() => {
-    if (!isAuthenticated) {
-      setItems([]);
-      setHydrated(true);
-      return;
-    }
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        setItems(JSON.parse(raw));
-      } else {
+    if (!authLoading && isAuthenticated) {
         setItems([]);
       }
-    } catch {
-      setItems([]);
-    }
     setHydrated(true);
-  }, [storageKey, isAuthenticated]);
+  }, [authLoading, isAuthenticated]);
 
-  // 2. Persist items to LocalStorage on change under current user storageKey (Only when authenticated)
-  useEffect(() => {
-    if (!hydrated || !isAuthenticated) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(items));
-    } catch {}
-  }, [items, storageKey, hydrated, isAuthenticated]);
-
-  // 3. Backend Cart Synchronization (getCart) - Disabled while auth is loading or for Admin users
+  // 2. Backend Cart Synchronization (getCart) - Backend as single source of truth
   const refreshCart = useCallback(async () => {
     if (authLoading || !isAuthenticated || isAdmin) return;
     try {
       setLoading(true);
       setError(null);
       const cartRes = await cartApi.getCart();
-      if (cartRes && Array.isArray(cartRes.items)) {
+      console.log("[Cart Debug] Cart API Response:", cartRes);
+
+      const data = Array.isArray(cartRes) ? cartRes : cartRes?.items;
+
+      if (Array.isArray(data)) {
+        // Hydrate full product metadata for all items in cart after reload
+        const productDetailsMap = new Map<string, Product>();
+
+        try {
+          const productIds = data
+            .map((i) => String(i.product_id || "").trim())
+            .filter(Boolean);
+
+          if (productIds.length > 0) {
+            const fetchedProducts = await Promise.allSettled(
+              productIds.map((id) => productsService.getProductById(id))
+            );
+            fetchedProducts.forEach((res) => {
+              if (res.status === "fulfilled" && res.value) {
+                const prod = res.value;
+                const pid = String(prod.product_id || (prod as any).id || (prod as any)._id || "").trim();
+                if (pid) {
+                  productDetailsMap.set(pid, prod);
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("[Cart Metadata Hydration] Failed to fetch product details:", e);
+        }
+
+        console.log("[Cart Debug] Hydrated product details map:", productDetailsMap);
+
         setItems((prevItems) => {
-          const itemMap = new Map(prevItems.map((pi) => [getProductId(pi.product), pi.product]));
-          return cartRes.items.map((i) => {
+          const prevMap = new Map(
+            prevItems.map((pi) => [getProductId(pi.product), pi.product])
+          );
+
+          return data.map((i) => {
             const pId = String(i.product_id || "").trim();
-            const existingProduct = itemMap.get(pId);
+            const fetchedProduct = productDetailsMap.get(pId);
+            const prevProduct = prevMap.get(pId);
+
             return {
               product: {
                 product_id: pId,
-                name: i.product_name || existingProduct?.name || "Product",
-                description: existingProduct?.description || "",
-                brand: existingProduct?.brand || "",
-                category: existingProduct?.category || "",
-                price: Number(i.price ?? existingProduct?.price ?? 0),
-                stock: existingProduct?.stock ?? 99,
-                image_url: i.image_url || existingProduct?.image_url || "",
-                is_active: existingProduct?.is_active ?? true,
-                created_at: existingProduct?.created_at || "",
-                updated_at: existingProduct?.updated_at || "",
+                name: i.product_name || fetchedProduct?.name || prevProduct?.name || "Product",
+                description: fetchedProduct?.description || prevProduct?.description || "",
+                brand: fetchedProduct?.brand || prevProduct?.brand || "",
+                category: fetchedProduct?.category || prevProduct?.category || "",
+                price: Number(i.price ?? fetchedProduct?.price ?? prevProduct?.price ?? 0),
+                stock: fetchedProduct?.stock ?? prevProduct?.stock ?? 99,
+                image_url: i.image_url || fetchedProduct?.image_url || prevProduct?.image_url || "",
+                is_active: fetchedProduct?.is_active ?? prevProduct?.is_active ?? true,
+                created_at: fetchedProduct?.created_at || prevProduct?.created_at || "",
+                updated_at: fetchedProduct?.updated_at || prevProduct?.updated_at || "",
               },
               quantity: Math.max(1, Number(i.quantity || 1)),
             };
@@ -134,9 +152,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, isAuthenticated, isAdmin]);
 
+  // 3. Initial load & window focus / tab visibility change auto-resync (multi-device consistency)
   useEffect(() => {
     if (!authLoading && isAuthenticated && !isAdmin) {
       refreshCart();
+
+      const handleFocusOrVisible = () => {
+        if (document.visibilityState === "visible") {
+          refreshCart();
+        }
+      };
+
+      window.addEventListener("focus", handleFocusOrVisible);
+      document.addEventListener("visibilitychange", handleFocusOrVisible);
+
+      return () => {
+        window.removeEventListener("focus", handleFocusOrVisible);
+        document.removeEventListener("visibilitychange", handleFocusOrVisible);
+      };
     }
   }, [authLoading, isAuthenticated, isAdmin, refreshCart]);
 
@@ -270,6 +303,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const setQty = useCallback(
     async (productId: string, qty: number) => {
       if (isAdmin) return;
+      if (!isAuthenticated) {
+        setGuestAuthModalOpen(true);
+        return;
+      }
 
       const cleanId = String(productId || "").trim();
       if (!cleanId || cleanId === "undefined" || cleanId === "null") return;
@@ -288,14 +325,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
         try {
           await cartApi.updateQuantity(cleanId, { quantity: Number(validQty) });
         } catch (err: any) {
-          setItems(previousItems);
-          console.error("[Update Cart Qty Error]", "Status:", err?.response?.status, "Data:", err?.response?.data);
-          toast.error("Failed to update item quantity in backend cart");
-          throw err;
+          const status = err?.response?.status;
+          const responseData = err?.response?.data;
+          const errorMsg =
+            typeof responseData === "string"
+              ? responseData
+              : responseData?.message || responseData?.error || responseData?.detail || "";
+
+          const isNotFoundInBackend =
+            status === 404 ||
+            status === 403 ||
+            (typeof errorMsg === "string" &&
+              (errorMsg.toLowerCase().includes("not found") ||
+                errorMsg.toLowerCase().includes("does not exist")));
+
+          if (isNotFoundInBackend) {
+            console.log("[Update Cart Qty] Item state mismatch in backend, resyncing cart.");
+            await refreshCart();
+          } else {
+            setItems(previousItems);
+            console.error("[Update Cart Qty Error]", "Status:", status, "Data:", responseData);
+            toast.error("Failed to update item quantity in backend cart");
+            throw err;
+          }
         }
       }
     },
-    [isAuthenticated, isAdmin]
+    [isAuthenticated, isAdmin, refreshCart]
   );
 
   // 7. Clear Cart - Restricted for Admin users
