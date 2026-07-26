@@ -52,11 +52,14 @@ function RegisterPage() {
         to: "/auth/login",
       });
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.message ||
-        error.message ||
-        "Registration failed."
-      );
+      const responseData = error.response?.data;
+      const apiMsg =
+        responseData?.error ||
+        responseData?.detail ||
+        responseData?.message ||
+        (typeof responseData === "string" ? responseData : error.message) ||
+        "Registration failed.";
+      toast.error(apiMsg);
     } finally {
       setLoading(false);
     }

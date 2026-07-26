@@ -55,9 +55,11 @@ apiClient.interceptors.request.use(
 
       if (config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
-        config.headers["Content-Type"] = "application/json";
+        if (!config.headers["Content-Type"]) {
+          config.headers["Content-Type"] = "application/json";
+        }
       }
-    } else if (config.headers) {
+    } else if (config.headers && !config.headers["Content-Type"]) {
       config.headers["Content-Type"] = "application/json";
     }
 

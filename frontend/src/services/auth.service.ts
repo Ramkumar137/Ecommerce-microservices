@@ -16,6 +16,10 @@ class AuthService {
       const role = String(loginData.user?.role || "").toUpperCase();
       if (role === "ADMIN" || role === "ADMINISTRATOR") {
         storage.setAdminToken(loginData.access_token);
+      } else if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("admin_access_token");
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("adminToken");
       }
     }
     if (loginData.refresh_token) {

@@ -2,6 +2,7 @@ import apiClient from "./client";
 import { ENV } from "@/config/env";
 import type {
   Payment,
+  PaymentStatus,
   CreatePaymentRequest,
   UpdatePaymentStatusRequest,
 } from "@/types/payment";

@@ -40,18 +40,16 @@ function LoginPage() {
     try {
       setLoading(true);
 
-      await login(formData);
+      const loggedUser = await login(formData);
 
       toast.success("Login successful");
 
-      const currentUser = JSON.parse(
-        localStorage.getItem("user") || "{}"
-      );
+      const userRole = String(loggedUser?.role || "").toUpperCase();
 
       const searchParams = new URLSearchParams(window.location.search);
       const redirect = searchParams.get("redirect");
 
-      if (currentUser.role === "ADMIN") {
+      if (userRole === "ADMIN" || userRole === "ADMINISTRATOR") {
         navigate({ to: "/admin" });
       } else if (redirect && redirect.startsWith("/")) {
         navigate({ to: redirect as any });
@@ -59,11 +57,14 @@ function LoginPage() {
         navigate({ to: "/" });
       }
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.message ||
-        error.message ||
-        "Sign in failed."
-      );
+      const responseData = error.response?.data;
+      const apiMsg =
+        responseData?.error ||
+        responseData?.detail ||
+        responseData?.message ||
+        (typeof responseData === "string" ? responseData : error.message) ||
+        "Sign in failed.";
+      toast.error(apiMsg);
     } finally {
       setLoading(false);
     }

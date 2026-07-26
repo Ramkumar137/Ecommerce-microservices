@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from rest_framework.parsers import MultiPartParser, FormParser
 from utils.s3 import upload_product_image
+from integrations.sns_client import SNSClient
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,25 @@ class ProductDetailView(APIView):
 
             table.put_item(Item=product)
 
+            try:
+                SNSClient().publish(
+                    event_type="PRODUCT_UPDATED",
+                    data={
+                        "product_id": product["product_id"],
+                        "name": product["name"],
+                        "description": product["description"],
+                        "brand": product["brand"],
+                        "category": product["category"],
+                        "price": float(product["price"]),
+                        "stock": product["stock"],
+                        "image_url": product["image_url"],
+                        "is_active": product["is_active"],
+                        "updated_at": product["updated_at"],
+                    }
+                )
+            except Exception as e:
+                logger.exception(f"Failed to publish PRODUCT_UPDATED: {e}")
+
             return Response(
                 serialize_product(product),
                 status=200,
@@ -228,18 +248,29 @@ class ProductDetailView(APIView):
         try:
 
             table = get_table(os.getenv("PRODUCT_TABLE"))
-
             response = table.get_item(
                 Key={
                     "product_id": product_id
                 }
             )
 
-            if "Item" not in response:
+            product = response.get("Item")
+            if not product:
                 return Response(
                     {"error": "Product not found"},
                     status=404,
                 )
+
+            # Publish PRODUCT_DELETED event
+            try:
+                SNSClient().publish(
+                    event_type="PRODUCT_DELETED",
+                    data={
+                        "product_id": product_id
+                    }
+                )
+            except Exception as e:
+                logger.exception(f"Failed to publish PRODUCT_DELETED event: {e}")
 
             table.delete_item(
                 Key={
@@ -256,7 +287,7 @@ class ProductDetailView(APIView):
                 {"error": "Internal server error"},
                 status=500,
             )
-
+        
 class UploadImageView(APIView):
     """
     Upload product image to S3.

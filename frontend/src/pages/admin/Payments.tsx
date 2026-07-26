@@ -98,7 +98,7 @@ function AdminPayments() {
   }
 
   const collected = paymentsList
-    .filter((p) => p.status === "COMPLETED" || p.status === "SUCCESS")
+    .filter((p) => p.status === ("COMPLETED" as any) || p.status === "SUCCESS")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const refunded = paymentsList.filter((p) => p.status === "REFUNDED").length;

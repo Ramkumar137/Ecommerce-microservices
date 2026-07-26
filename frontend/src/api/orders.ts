@@ -2,6 +2,7 @@ import apiClient from "./client";
 import { ENV } from "@/config/env";
 import type {
   Order,
+  OrderStatus,
   CreateOrderRequest,
   UpdateOrderStatusRequest,
 } from "@/types/order";

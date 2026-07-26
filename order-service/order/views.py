@@ -10,6 +10,7 @@ from .serializers import (
 from shared.authentication import JWTAuthentication
 from shared.permissions import IsCustomer, IsAdmin
 from .services import OrderService
+from integrations.sns_client import SNSClient
 
 
 class OrderListCreateView(APIView):
@@ -48,11 +49,16 @@ class OrderListCreateView(APIView):
                 items=serializer.validated_data["items"],
                 token=token
             )
-            # order = OrderService.create_order(
-            #     user_id=request.user["user_id"],
-            #     items=serializer.validated_data["items"]
-            # )
-
+            SNSClient().publish(
+                event_type="ORDER_CREATED",
+                data={
+                    "order_id": order["order_id"],
+                    "user_id": order["user_id"],
+                    "items": order["items"],
+                    "total_amount": float(order["total_amount"]),
+                    "status": order["status"]
+                }
+            )
             return Response(
                 order,
                 status=status.HTTP_201_CREATED

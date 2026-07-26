@@ -6,6 +6,16 @@ const USER = "user";
 export const storage = {
   setAccessToken(token: string) {
     localStorage.setItem(ACCESS_TOKEN, token);
+    const userStr = localStorage.getItem(USER);
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        const role = String(user?.role || "").toUpperCase();
+        if (role === "ADMIN" || role === "ADMINISTRATOR") {
+          localStorage.setItem(ADMIN_ACCESS_TOKEN, token);
+        }
+      } catch {}
+    }
   },
 
   setAdminToken(token: string) {
@@ -71,10 +81,19 @@ export const storage = {
       localStorage.removeItem(ACCESS_TOKEN);
       localStorage.removeItem(ADMIN_ACCESS_TOKEN);
       localStorage.removeItem("admin_token");
+      localStorage.removeItem("adminToken");
       localStorage.removeItem(REFRESH_TOKEN);
       localStorage.removeItem(USER);
       localStorage.clear();
       sessionStorage.clear();
+
+      if (typeof document !== "undefined") {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+        });
+      }
     } catch {}
   },
 };

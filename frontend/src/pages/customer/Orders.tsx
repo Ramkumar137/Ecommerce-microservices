@@ -9,6 +9,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Package, AlertCircle, RefreshCw, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import type { Order } from "@/types/order";
 export function getItemPricing(it: any) {
   const qty = Number(it?.quantity || 1);
   const rawPrice = it?.price ?? it?.unit_price ?? it?.unitPrice ?? it?.cost;
@@ -234,7 +235,7 @@ function OrdersPage() {
                       Order Items ({itemCount})
                     </p>
                     <ul className="divide-y rounded-lg border bg-surface px-3 py-1">
-                      {o.items.map((it, idx) => {
+                      {o.items.map((it: any, idx: number) => {
                         const pricing = getItemPricing(it);
                         return (
                           <li key={idx} className="flex items-center justify-between py-2 text-xs">

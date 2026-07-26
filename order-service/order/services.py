@@ -74,13 +74,6 @@ class OrderService:
                     f"Insufficient stock for product {item['product_id']}."
                 )
 
-            # Reserve stock
-            InventoryClient.reserve_stock(
-                item["product_id"],
-                quantity,
-                token
-            )
-
             unit_price = Decimal(str(product["price"]))
 
             subtotal = unit_price * quantity

@@ -3,7 +3,7 @@ import traceback
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
+from integrations.sns_client import SNSClient
 from shared.authentication import JWTAuthentication
 from shared.permissions import IsCustomer
 
@@ -171,6 +171,12 @@ class PaymentStatusView(APIView):
                     "",
                 ),
             )
+
+            if payment["status"] == "SUCCESS":
+                SNSClient().publish_payment_success(payment)
+
+            elif payment["status"] == "FAILED":
+                SNSClient().publish_payment_failed(payment)
 
             return Response(
                 payment,
