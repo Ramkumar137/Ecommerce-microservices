@@ -68,12 +68,12 @@ function AdminPayments() {
     if (!selectedPayment) return;
     try {
       setUpdating(true);
-      const targetStatus = newStatus === ("COMPLETED" as any) ? "SUCCESS" : newStatus;
       await paymentsApi.updateStatus(selectedPayment.payment_id, {
-        status: targetStatus,
+        status: newStatus,
         transaction_id: selectedPayment.transaction_id || `TXN-${Date.now()}`,
       });
-      toast.success(`Payment status updated to ${targetStatus}`);
+
+      toast.success(`Payment status updated to ${newStatus}`);
       setEditOpen(false);
       await loadPayments();
     } catch (err: any) {
@@ -98,12 +98,16 @@ function AdminPayments() {
   }
 
   const collected = paymentsList
-    .filter((p) => p.status === ("COMPLETED" as any) || p.status === "SUCCESS")
+    .filter((p) => p.status === "DELIVERED")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const refunded = paymentsList.filter((p) => p.status === "REFUNDED").length;
-  const failed = paymentsList.filter((p) => p.status === "FAILED").length;
+  const processing = paymentsList.filter(
+    (p) => p.status === "PROCESSING"
+  ).length;
 
+  const cancelled = paymentsList.filter(
+    (p) => p.status === "CANCELLED"
+  ).length;
   return (
     <>
       <PageHeader title="Payments" description="Track collected revenue and manage transaction status." />
@@ -111,8 +115,8 @@ function AdminPayments() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Collected" value={formatPrice(collected)} delta={9.1} icon={CircleDollarSign} />
         <StatCard label="Transactions" value={paymentsList.length.toString()} delta={5.2} icon={ReceiptText} />
-        <StatCard label="Refunded" value={refunded.toString()} icon={RotateCcw} />
-        <StatCard label="Failed" value={failed.toString()} icon={XCircle} />
+        <StatCard label="Processing" value={processing.toString()} icon={RotateCcw}/>
+        <StatCard label="Cancelled" value={cancelled.toString()} icon={XCircle}/>
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -135,10 +139,11 @@ function AdminPayments() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUCCESS">SUCCESS</SelectItem>
-                    <SelectItem value="PENDING">PENDING</SelectItem>
-                    <SelectItem value="FAILED">FAILED</SelectItem>
-                    <SelectItem value="REFUNDED">REFUNDED</SelectItem>
+                    <SelectItem value="PENDING">SUCCESS</SelectItem>
+                    <SelectItem value="CONFIRMED">CONFIRMED</SelectItem>
+                    <SelectItem value="PROCESSING">PROCESSING</SelectItem>
+                    <SelectItem value="SHIPPED">SHIPPED</SelectItem>
+                    <SelectItem value="DELIVERED">DELIVERED</SelectItem>
                     <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                   </SelectContent>
                 </Select>

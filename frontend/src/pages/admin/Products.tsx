@@ -2,6 +2,7 @@ import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { useEffect, useMemo, useState } from "react";
 import { productsApi } from "@/api/products";
+import { inventoryApi } from "@/api/inventory";
 import type { Product } from "@/types/product";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,8 @@ function AdminProducts() {
   const [formData, setFormData] = useState(emptyProduct);
 
   const [creating, setCreating] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<"" | "Creating Product..." | "Initializing Inventory...">("");
+  const [pendingInventoryProduct, setPendingInventoryProduct] = useState<{ product_id: string; stock: number } | null>(null);
 
 
   const filtered = useMemo(() => {
@@ -87,30 +90,63 @@ function AdminProducts() {
   }
 
   async function createProduct() {
+    let createdProduct = pendingInventoryProduct;
+    const initialStock = Number(formData.stock) || 0;
+
+    if (!createdProduct) {
+      try {
+        setCreating(true);
+        setLoadingStep("Creating Product...");
+
+        const newProd = await productsApi.create({
+          ...formData,
+          price: Number(formData.price),
+          stock: initialStock,
+        });
+
+        createdProduct = {
+          product_id: newProd.product_id,
+          stock: typeof newProd.stock === "number" ? newProd.stock : initialStock,
+        };
+      } catch (err: any) {
+        console.error("Product creation failed:", err);
+        toast.error(
+          err.response?.data?.message ??
+          err.response?.data?.error ??
+          "Failed to create product."
+        );
+        setCreating(false);
+        setLoadingStep("");
+        return;
+      }
+    }
+
     try {
       setCreating(true);
+      setLoadingStep("Initializing Inventory...");
 
-      await productsApi.create({
-        ...formData,
-        price: Number(formData.price),
-        stock: Number(formData.stock),
+      await inventoryApi.create({
+        product_id: createdProduct.product_id,
+        stock: createdProduct.stock,
+        reserved_stock: 0,
       });
 
+      setPendingInventoryProduct(null);
       toast.success("Product created successfully");
 
       setOpenCreate(false);
       setFormData(emptyProduct);
 
-      loadProducts();
+      await loadProducts();
+      inventoryApi.list().catch(() => []);
     } catch (err: any) {
-      console.error(err);
-
-      toast.error(
-        err.response?.data?.message ??
-        "Failed to create product."
-      );
+      console.error("Inventory creation failed:", err);
+      setPendingInventoryProduct(createdProduct);
+      toast.warning("Product created successfully, but inventory initialization failed.");
+      loadProducts();
     } finally {
       setCreating(false);
+      setLoadingStep("");
     }
   }
 
@@ -315,7 +351,10 @@ function AdminProducts() {
                 <DialogFooter>
                   <Button
                     variant="outline"
-                    onClick={() => setOpenCreate(false)}
+                    onClick={() => {
+                      setOpenCreate(false);
+                      setPendingInventoryProduct(null);
+                    }}
                   >
                     Cancel
                   </Button>
@@ -324,7 +363,11 @@ function AdminProducts() {
                     onClick={createProduct}
                     disabled={creating}
                   >
-                    {creating ? "Creating..." : "Create Product"}
+                    {creating
+                      ? loadingStep || "Processing..."
+                      : pendingInventoryProduct
+                      ? "Retry Inventory Initialization"
+                      : "Create Product"}
                   </Button>
                 </DialogFooter>
             </DialogContent>

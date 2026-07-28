@@ -21,7 +21,10 @@ function AdminInventory() {
 
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [stockForm, setStockForm] = useState({ available_stock: 0, total_stock: 0 });
+  const [stockForm, setStockForm] = useState({
+    stock: 0,
+    reserved_stock: 0,
+  });
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
@@ -52,11 +55,18 @@ function AdminInventory() {
     }
   }
 
+  interface InventoryView {
+    productId: string;
+    totalStock: number;
+    reservedStock: number;
+    availableStock: number;
+  }
+
   function handleEditClick(item: InventoryItem) {
     setSelectedItem(item);
     setStockForm({
-      available_stock: item.available_stock,
-      total_stock: item.total_stock,
+      stock: item.total_stock,
+      reserved_stock: item.reserved_stock,
     });
     setEditOpen(true);
   }
@@ -65,9 +75,9 @@ function AdminInventory() {
     if (!selectedItem) return;
     try {
       setUpdating(true);
-      await inventoryApi.update(selectedItem.product_id, {
-        available_stock: Number(stockForm.available_stock),
-        total_stock: Number(stockForm.total_stock),
+      await inventoryApi.update(selectedItem.product_id,{
+        stock: stockForm.stock,
+        reserved_stock: stockForm.reserved_stock,
       });
       toast.success("Stock level updated");
       setEditOpen(false);
@@ -117,23 +127,25 @@ function AdminInventory() {
               <Input value={selectedItem?.product_id || ""} disabled className="mt-1" />
             </div>
             <div>
-              <Label>Available Stock</Label>
-              <Input
-                type="number"
-                value={stockForm.available_stock}
-                onChange={(e) =>
-                  setStockForm({ ...stockForm, available_stock: Number(e.target.value) })
-                }
-                className="mt-1"
-              />
+              <Label>Reserved Stock</Label>
+                <Input
+                    type="number"
+                    value={stockForm.reserved_stock}
+                    onChange={(e)=>
+                        setStockForm({
+                            ...stockForm,
+                            reserved_stock:Number(e.target.value)
+                        })
+                    }
+                />
             </div>
             <div>
               <Label>Total Stock</Label>
               <Input
                 type="number"
-                value={stockForm.total_stock}
+                value={stockForm.stock}
                 onChange={(e) =>
-                  setStockForm({ ...stockForm, total_stock: Number(e.target.value) })
+                  setStockForm({ ...stockForm, stock: Number(e.target.value) })
                 }
                 className="mt-1"
               />
@@ -191,7 +203,7 @@ function AdminInventory() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <Progress
-                          value={Math.min(100, (item.available_stock / 100) * 100)}
+                          value={item.total_stock ? (item.available_stock / item.total_stock) * 100: 0}
                           className="h-1.5 w-32"
                         />
                         <span className="text-xs tabular-nums text-muted-foreground">

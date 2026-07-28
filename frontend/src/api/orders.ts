@@ -15,18 +15,11 @@ export const ordersApi = {
   },
 
   listAdmin(): Promise<Order[]> {
-    const parentUrl = ORDER_URL.replace(/\/orders\/?$/, "");
     return apiClient
-      .get(`${parentUrl}/admin/orders/`)
-      .catch(() => apiClient.get(`${ORDER_URL}/admin/`))
-      .catch(() => apiClient.get(`${ORDER_URL}/all/`))
-      .catch(() => apiClient.get(`${ORDER_URL}/`))
-      .then((response) =>
-        Array.isArray(response.data)
-          ? response.data
-          : response.data?.results || response.data?.orders || []
-      );
+        .get(`${ORDER_URL}/`)
+        .then(res => res.data);
   },
+
 
   get(id: string): Promise<Order> {
     return apiClient.get(`${ORDER_URL}/${id}/`).then((response) => response.data);
@@ -56,7 +49,14 @@ export const ordersApi = {
     const rawStatus = String(payload.status || "").toUpperCase().trim();
     const finalStatus = rawStatus === "COMPLETED" ? "SUCCESS" : rawStatus;
 
-    const allowedStatuses = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "CANCELLED"];
+    const allowedStatuses = [
+      "PENDING",
+      "CONFIRMED",
+      "PROCESSING",
+      "SHIPPED",
+      "DELIVERED",
+      "CANCELLED",
+    ];
     const statusToSend = (allowedStatuses.includes(finalStatus) ? finalStatus : finalStatus) as OrderStatus;
 
     const cleanPayload = {

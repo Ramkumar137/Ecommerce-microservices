@@ -2,13 +2,14 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { storage } from "@/utils/storage";
 import { ENV } from "@/config/env";
 import { handleSessionExpired, isJwtExpired } from "@/utils/session";
+import { toast } from "sonner";
 
 /**
  * Authenticated Axios Client Instance for Microservices
  */
 export const apiClient = axios.create({
   timeout: ENV.API_TIMEOUT,
-  withCredentials: true,
+  withCredentials: false,
   headers: {
     "Content-Type": "application/json",
   },
@@ -158,7 +159,6 @@ apiClient.interceptors.response.use(
 
       // User notification for admin authorization issues
       if (typeof window !== "undefined") {
-        const { toast } = require("sonner");
         toast.error("Admin access required", { id: "admin-access-required-toast" });
       }
 

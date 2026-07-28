@@ -15,18 +15,24 @@ export const paymentsApi = {
   },
 
   listAdmin(): Promise<Payment[]> {
-    const parentUrl = PAYMENT_URL.replace(/\/payments\/?$/, "");
     return apiClient
-      .get(`${parentUrl}/admin/payments/`)
-      .catch(() => apiClient.get(`${PAYMENT_URL}/admin/`))
-      .catch(() => apiClient.get(`${PAYMENT_URL}/all/`))
-      .catch(() => apiClient.get(`${PAYMENT_URL}/`))
-      .then((r) =>
-        Array.isArray(r.data)
-          ? r.data
-          : r.data?.results || r.data?.payments || []
-      );
+        .get(`${PAYMENT_URL}/`)
+        .then(res => res.data);
   },
+
+  // listAdmin(): Promise<Payment[]> {
+  //   const parentUrl = PAYMENT_URL.replace(/\/payments\/?$/, "");
+  //   return apiClient
+  //     .get(`${parentUrl}/admin/payments/`)
+  //     .catch(() => apiClient.get(`${PAYMENT_URL}/admin/`))
+  //     .catch(() => apiClient.get(`${PAYMENT_URL}/all/`))
+  //     .catch(() => apiClient.get(`${PAYMENT_URL}/`))
+  //     .then((r) =>
+  //       Array.isArray(r.data)
+  //         ? r.data
+  //         : r.data?.results || r.data?.payments || []
+  //     );
+  // },
 
   create(payload: CreatePaymentRequest): Promise<Payment> {
     return apiClient.post(`${PAYMENT_URL}/`, payload).then((r) => r.data);

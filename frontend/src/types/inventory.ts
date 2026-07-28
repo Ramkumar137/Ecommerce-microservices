@@ -9,13 +9,14 @@ export interface InventoryItem {
 
 export interface CreateInventoryRequest {
   product_id: string;
-  total_stock: number;
-  available_stock: number;
-  reserved_stock: number;
+  stock: number;
+  reserved_stock?: number;
+  total_stock?: number;
+  available_stock?: number;
 }
 
 export interface UpdateInventoryRequest {
-  total_stock?: number;
+  stock?: number;
   available_stock?: number;
   reserved_stock?: number;
 }

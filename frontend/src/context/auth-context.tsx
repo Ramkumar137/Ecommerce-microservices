@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function initAuth() {
       try {
         const token = storage.getAccessToken();
-        if (token && !isJwtExpired(token)) {
+        if (!token || isJwtExpired(token)) {
+          setUser(null);
+        } else {
           const cachedUser = storage.getUser();
           if (cachedUser) {
             setUser(cachedUser);
@@ -88,7 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return updated;
   };
 
+  const token = typeof window !== "undefined" ? storage.getAccessToken() : null;
+  const isValidToken = !!token && !isJwtExpired(token);
+  const isAuthenticated = !!user && user.is_active !== false && isValidToken;
+
   const isAdmin =
+    isAuthenticated &&
     !!user &&
     typeof user.role === "string" &&
     (user.role.toUpperCase() === "ADMIN" || user.role.toUpperCase() === "ADMINISTRATOR");
@@ -102,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         updateUserProfile,
-        isAuthenticated: !!user && user.is_active !== false,
+        isAuthenticated,
         isAdmin,
       }}
     >
