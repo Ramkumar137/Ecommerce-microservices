@@ -46,11 +46,10 @@ class InventorySerializer(serializers.Serializer):
 #     stock = serializers.IntegerField(min_value=0)
 
 class UpdateStockSerializer(serializers.Serializer):
-
-    stock = serializers.IntegerField(
-        min_value=0,
-        required=True
-    )
+    # Accept both 'stock' (internal) and 'total_stock' (frontend alias).
+    # 'total_stock' takes precedence when both are provided.
+    stock = serializers.IntegerField(min_value=0, required=False)
+    total_stock = serializers.IntegerField(min_value=0, required=False)
 
     reserved_stock = serializers.IntegerField(
         min_value=0,
@@ -58,10 +57,17 @@ class UpdateStockSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
+        # Resolve stock: prefer total_stock if provided
+        stock = attrs.pop("total_stock", None)
+        if stock is None:
+            stock = attrs.get("stock")
+        if stock is None:
+            raise serializers.ValidationError(
+                {"stock": "This field is required."}
+            )
+        attrs["stock"] = stock
 
-        stock = attrs["stock"]
         reserved = attrs.get("reserved_stock", 0)
-
         if reserved > stock:
             raise serializers.ValidationError(
                 "Reserved stock cannot exceed total stock."

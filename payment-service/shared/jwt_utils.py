@@ -75,17 +75,18 @@ class JWTService:
 
     @staticmethod
     def refresh_access_token(refresh_token):
-        """
-        Generate new access token using refresh token.
-        """
 
         payload = JWTService.verify_token(refresh_token)
 
         if payload["type"] != "refresh":
             raise ValueError("Invalid refresh token.")
 
+        now = datetime.now(timezone.utc)
+
         new_payload = {
             "user_id": payload["user_id"],
+            "email": payload["email"],
+            "role": payload["role"],
             "type": "access",
             "exp": now + settings.ACCESS_TOKEN_EXPIRE,
             "iat": now,

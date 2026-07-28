@@ -4,14 +4,14 @@ from rest_framework.permissions import BasePermission
 class IsAuthenticatedUser(BasePermission):
 
     def has_permission(self, request, view):
-        return isinstance(request.user, dict)
+        return request.user is not None
 
 
 class IsAdmin(BasePermission):
 
     def has_permission(self, request, view):
         return (
-            isinstance(request.user, dict)
+            request.user
             and request.user.get("role") == "ADMIN"
         )
 
@@ -19,9 +19,7 @@ class IsAdmin(BasePermission):
 class IsCustomer(BasePermission):
 
     def has_permission(self, request, view):
-        if not isinstance(request.user, dict):
-            return False
-
-        role = str(request.user.get("role", "")).upper()
-
-        return role in ["CUSTOMER", "ADMIN", "ADMINISTRATOR"]
+        return (
+            request.user
+            and request.user.get("role") == "CUSTOMER"
+        )

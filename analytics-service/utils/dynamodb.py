@@ -13,5 +13,6 @@ if profile:
 else:
     dynamodb = boto3.resource("dynamodb", region_name=region)
 
+
 def get_table(table_name):
     return dynamodb.Table(table_name)

@@ -18,19 +18,17 @@ class OrderListCreateView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request):
-        try:
+
+        role = request.user.get("role")
+
+        if role == "ADMIN":
+            orders = OrderService.get_all_orders()
+        else:
             orders = OrderService.get_orders_by_user(
                 request.user["user_id"]
             )
-            return Response(
-                orders,
-                status=status.HTTP_200_OK
-            )
-        except Exception:
-            return Response(
-                {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+
+        return Response(orders)
 
     def post(self, request):
 

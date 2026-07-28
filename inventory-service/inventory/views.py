@@ -22,6 +22,21 @@ from .services import InventoryService
 logger = logging.getLogger(__name__)
 
 
+def serialize_item(item):
+    """Normalize DynamoDB item for API response.
+    Exposes 'stock' as 'total_stock' to match frontend contract.
+    Converts Decimal to int.
+    """
+    return {
+        "product_id": item.get("product_id"),
+        "total_stock": int(item.get("stock", 0)),
+        "available_stock": int(item.get("available_stock", 0)),
+        "reserved_stock": int(item.get("reserved_stock", 0)),
+        "created_at": item.get("created_at"),
+        "updated_at": item.get("updated_at"),
+    }
+
+
 class InventoryListView(APIView):
 
     authentication_classes = [JWTAuthentication]
@@ -34,7 +49,10 @@ class InventoryListView(APIView):
     def get(self, request):
         try:
             items = InventoryService.list_inventory()
-            return Response(items, status=status.HTTP_200_OK)
+            return Response(
+                [serialize_item(i) for i in items],
+                status=status.HTTP_200_OK,
+            )
 
         except Exception:
             logger.exception("Failed to list inventory")
@@ -92,7 +110,7 @@ class InventoryDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response(item)
+        return Response(serialize_item(item))
 
     def put(self, request, product_id):
 
@@ -112,7 +130,7 @@ class InventoryDetailView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            return Response(item)
+            return Response(serialize_item(item))
 
         except ValueError as e:
             return Response(

@@ -121,6 +121,27 @@ class ProductListCreateView(APIView):
             }
 
             table.put_item(Item=product)
+            logger.info("[PRODUCT_CREATED] product_id=%s saved to DynamoDB", product["product_id"])
+
+            try:
+                SNSClient().publish(
+                    event_type="PRODUCT_CREATED",
+                    data={
+                        "product_id": product["product_id"],
+                        "name": product["name"],
+                        "description": product["description"],
+                        "brand": product["brand"],
+                        "category": product["category"],
+                        "price": float(product["price"]),
+                        "stock": product["stock"],
+                        "image_url": product["image_url"],
+                        "is_active": product["is_active"],
+                        "created_at": product["created_at"],
+                    }
+                )
+                logger.info("[PRODUCT_CREATED] SNS published for product_id=%s", product["product_id"])
+            except Exception as sns_exc:
+                logger.exception("[PRODUCT_CREATED] SNS publish failed for product_id=%s: %s", product["product_id"], sns_exc)
 
             return Response(
                 serialize_product(product),
@@ -129,9 +150,6 @@ class ProductListCreateView(APIView):
 
         except Exception as exc:
             logger.exception("Failed to create product")
-            import traceback
-            traceback.print_exc()
-
             return Response(
                 {"error": str(exc)},
                 status=500,

@@ -20,10 +20,14 @@ class PaymentListCreateView(APIView):
 
     def get(self, request):
         try:
+            role=request.user.get("role")
 
-            payments = PaymentService.get_payments_by_user(
-                request.user["user_id"]
-            )
+            if role=="ADMIN":
+                payments=PaymentService.get_all_payments()
+            else:
+                payments=PaymentService.get_payments_by_user(
+                    request.user["user_id"]
+                )
 
             return Response(
                 payments,
