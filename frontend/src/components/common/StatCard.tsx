@@ -14,13 +14,13 @@ export function StatCard({
 }) {
   const positive = (delta ?? 0) >= 0;
   return (
-    <div className="rounded-xl border bg-card p-5 shadow-soft">
+    <div className="group rounded-xl border bg-card p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevated">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
         </div>
-        <div className="grid size-9 place-items-center rounded-lg bg-muted text-foreground">
+        <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
           <Icon className="size-4" />
         </div>
       </div>

@@ -7,7 +7,7 @@ import { formatFriendlyDate } from "../customer/Orders";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Loader2, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { storage } from "@/utils/storage";
@@ -147,9 +147,17 @@ function AdminOrders() {
       <div className="mt-4 overflow-hidden rounded-xl border bg-card shadow-soft">
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Loading orders...</div>
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm text-muted-foreground gap-2">
+              <Loader2 className="size-6 animate-spin text-primary" />
+              <span>Loading customer orders...</span>
+            </div>
           ) : errorMsg ? (
-            <div className="p-8 text-center text-sm text-destructive font-medium">{errorMsg}</div>
+            <div className="flex flex-col items-center justify-center p-12 text-center text-sm gap-3">
+              <p className="text-destructive font-medium">{errorMsg}</p>
+              <Button variant="outline" size="sm" onClick={loadOrders} className="gap-2">
+                <RefreshCw className="size-4" /> Try Again
+              </Button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">No customer orders found.</div>
           ) : (
@@ -190,6 +198,11 @@ function AdminOrders() {
             </table>
           )}
         </div>
+        {!loading && !errorMsg && filtered.length > 0 && (
+          <div className="flex items-center justify-between border-t bg-surface/40 px-5 py-3 text-xs text-muted-foreground">
+            <span>Showing <strong className="text-foreground">{filtered.length}</strong> of <strong className="text-foreground">{ordersList.length}</strong> orders</span>
+          </div>
+        )}
       </div>
 
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>

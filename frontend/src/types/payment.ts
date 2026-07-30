@@ -1,4 +1,4 @@
-export type PaymentStatus = "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type PaymentStatus = "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "SUCCESS" | "COMPLETED";
 
 export interface Payment {
   payment_id: string;

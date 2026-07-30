@@ -129,8 +129,8 @@ function CartPage() {
     return () => clearInterval(interval);
   }, [authLoading, isAuthenticated, isAdmin, refreshCart]);
 
-  const shipping = subtotal > 50 || subtotal === 0 ? 0 : 6.99;
-  const tax = subtotal * 0.08;
+  const shipping = subtotal > 4000 || subtotal === 0 ? 0 : 599;
+  const tax = subtotal * 0.18;
   const discountAmount = subtotal * appliedDiscount;
   const total = Math.max(0, subtotal - discountAmount + shipping + tax);
 
@@ -369,7 +369,7 @@ function CartPage() {
               </div>
 
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Estimated tax (8%)</dt>
+                <dt className="text-muted-foreground">Estimated tax (18% GST)</dt>
                 <dd className="font-medium text-foreground">{formatPrice(tax)}</dd>
               </div>
             </dl>
@@ -379,9 +379,9 @@ function CartPage() {
               <span className="text-lg text-primary">{formatPrice(total)}</span>
             </div>
 
-            {subtotal > 0 && subtotal < 50 && (
+            {subtotal > 0 && subtotal < 4000 && (
               <p className="text-[11px] text-muted-foreground text-center bg-muted/40 py-2 px-3 rounded-lg border">
-                Add <strong>{formatPrice(50 - subtotal)}</strong> more for <strong>Free Shipping</strong>!
+                Add <strong>{formatPrice(4000 - subtotal)}</strong> more for <strong>Free Shipping</strong>!
               </p>
             )}
 

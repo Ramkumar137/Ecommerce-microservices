@@ -12,6 +12,7 @@ import { paymentsApi } from "@/api/payments";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
+import { PaymentSuccessModal } from "@/components/common/PaymentSuccessModal";
 
 function Section({
   step,
@@ -85,6 +86,12 @@ function Checkout() {
   >("processing");
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successOrderDetails, setSuccessOrderDetails] = useState<{
+    orderId?: string;
+    amount?: number;
+  } | null>(null);
+
   if (!isAuthenticated) {
     return (
       <div className="w-full px-4 py-12 sm:px-6 lg:px-10">
@@ -130,8 +137,8 @@ function Checkout() {
 
   const navigate = useNavigate();
 
-  const shippingCost = shippingMethod === "express" ? 14.99 : subtotal > 50 ? 0 : 6.99;
-  const tax = subtotal * 0.08;
+  const shippingCost = shippingMethod === "express" ? 1299 : subtotal > 4000 ? 0 : 599;
+  const tax = subtotal * 0.18;
   const total = subtotal + shippingCost + tax;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -303,9 +310,8 @@ function Checkout() {
         return;
       }
 
-      // Step 3: Finalize Order on Frontend & Redirect
+      // Step 3: Finalize Order & Trigger Celebration Modal
       setProcessingStep("Finalizing order...");
-      toast.success("Order Placed Successfully!");
       await clear();
       console.log("Cart cleared after successful order & payment creation", {
         orderId: createdOrderId,
@@ -313,10 +319,11 @@ function Checkout() {
         paymentStatus: localPaymentStatus,
       });
 
-      navigate({
-        to: "/order-success",
-        search: { orderId: createdOrderId },
+      setSuccessOrderDetails({
+        orderId: createdOrderId,
+        amount: total,
       });
+      setSuccessModalOpen(true);
     } catch (err: any) {
       console.error("[Unexpected Checkout Error]", err);
       const exactError =
@@ -332,24 +339,22 @@ function Checkout() {
       setProcessingStep(null);
     }
   };
-    const handlePayNow = async () => {
-      setShowPaymentModal(true);
-      setPaymentStatus("processing");
 
-     await new Promise(resolve => setTimeout(resolve, 2000));
+  const handlePayNow = async () => {
+    setShowPaymentModal(true);
+    setPaymentStatus("processing");
 
-      setPaymentStatus("success");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      await new Promise(resolve => setTimeout(resolve, 1200));
+    setPaymentStatus("success");
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
-      setShowPaymentModal(false);
+    setShowPaymentModal(false);
+    setPaymentCompleted(true);
+    setActiveStep(5);
 
-      setPaymentCompleted(true);
-
-      setActiveStep(5);
-
-      await handleSubmit();
-    };
+    await handleSubmit();
+  };
 
   const contactSummary = [
     `${formData.firstName} ${formData.lastName}`.trim(),
@@ -369,8 +374,8 @@ function Checkout() {
 
   const deliverySummary =
     shippingMethod === "express"
-      ? "Express Shipping (1–2 business days · $14.99)"
-      : `Standard Shipping (4–6 business days · ${subtotal > 50 ? "Free" : "$6.99"})`;
+      ? "Express Shipping (1–2 business days · ₹1,299)"
+      : `Standard Shipping (4–6 business days · ${subtotal > 4000 ? "Free" : "₹599"})`;
 
   return (
     <div className="w-full px-4 py-10 sm:px-6 lg:px-10">
@@ -517,7 +522,7 @@ function Checkout() {
                     <span className="text-sm font-medium">Standard</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    4–6 business days · {subtotal > 50 ? "Free" : "$6.99"}
+                    4–6 business days · {subtotal > 4000 ? "Free" : "₹599"}
                   </p>
                 </div>
               </label>
@@ -533,7 +538,7 @@ function Checkout() {
                     <Zap className="size-4" />
                     <span className="text-sm font-medium">Express</span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">1–2 business days · $14.99</p>
+                  <p className="mt-1 text-xs text-muted-foreground">1–2 business days · ₹1,299</p>
                 </div>
               </label>
             </RadioGroup>
@@ -679,31 +684,25 @@ function Checkout() {
           </Section>
 
           {showPaymentModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="bg-white rounded-xl p-8 w-96 text-center">
-
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="w-80 rounded-2xl border bg-card p-8 text-center shadow-elevated">
                 {paymentStatus === "processing" ? (
                   <>
-                    <Loader2 className="h-10 w-10 animate-spin mx-auto text-blue-600" />
-                    <h2 className="mt-4 text-xl font-semibold">
-                      Processing Payment
-                    </h2>
-                    <p className="text-gray-500 mt-2">
-                      Please wait...
-                    </p>
+                    <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10">
+                      <Loader2 className="size-8 animate-spin text-primary" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-foreground">Processing Payment</h2>
+                    <p className="mt-1.5 text-sm text-muted-foreground">Please wait, do not close this window…</p>
                   </>
                 ) : (
                   <>
-                    <Check className="h-12 w-12 mx-auto text-green-600" />
-                    <h2 className="mt-4 text-xl font-semibold">
-                      Payment Successful
-                    </h2>
-                    <p className="text-gray-500 mt-2">
-                      Redirecting...
-                    </p>
+                    <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-emerald-500/10">
+                      <Check className="size-8 text-emerald-600" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-foreground">Payment Successful!</h2>
+                    <p className="mt-1.5 text-sm text-muted-foreground">Redirecting to your order…</p>
                   </>
                 )}
-
               </div>
             </div>
           )}
@@ -785,12 +784,17 @@ function Checkout() {
                 </>
               )}
             </Button>
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              Secure checkout · SSL encrypted
-            </p>
           </div>
         </aside>
       </form>
+
+      {/* Payment Success Celebration Modal */}
+      <PaymentSuccessModal
+        open={successModalOpen}
+        onOpenChange={setSuccessModalOpen}
+        orderId={successOrderDetails?.orderId}
+        amount={successOrderDetails?.amount}
+      />
     </div>
   );
 }

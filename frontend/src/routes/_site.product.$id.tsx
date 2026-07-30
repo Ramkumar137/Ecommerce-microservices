@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import ProductDetails from "@/pages/customer/ProductDetails";
 
-export const Route = createFileRoute("/_site/products/$id")({
+export const Route = createFileRoute("/_site/product/$id")({
   head: () => ({
     meta: [
       { title: "Product Details — HeisenFlow" },

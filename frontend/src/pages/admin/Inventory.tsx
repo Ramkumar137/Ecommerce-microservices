@@ -164,7 +164,17 @@ function AdminInventory() {
 
       <div className="mt-6 overflow-hidden rounded-xl border bg-card shadow-soft">
         {loading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Loading inventory...</div>
+          <div className="space-y-0 divide-y">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4">
+                <div className="size-10 rounded-md bg-muted animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-40 rounded bg-muted animate-pulse" />
+                  <div className="h-2.5 w-24 rounded bg-muted animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="border-b bg-surface/60 text-left text-xs uppercase tracking-wider text-muted-foreground">

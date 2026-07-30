@@ -7,6 +7,8 @@ export interface InventoryItem {
   updated_at?: string;
 }
 
+export type Inventory = InventoryItem;
+
 export interface CreateInventoryRequest {
   product_id: string;
   stock: number;

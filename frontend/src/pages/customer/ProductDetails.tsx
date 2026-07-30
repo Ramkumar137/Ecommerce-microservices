@@ -45,22 +45,38 @@ function ProductDetail() {
       setLoading(true);
       setError(null);
 
-      // 1. Fetch main product info and related products list
-      const [prodData, allProducts] = await Promise.all([
+      // 1. Fetch main product info and all products list for related items
+      const [prodRes, allProductsRes] = await Promise.allSettled([
         productsService.getProductById(id),
-        productsService.getProducts().catch(() => []),
+        productsService.getProducts(),
       ]);
 
+      const allProducts = allProductsRes.status === "fulfilled" ? allProductsRes.value : [];
+      
+      let prodData: any = prodRes.status === "fulfilled" ? prodRes.value : null;
+
+      // Fallback: If direct GET /products/{id}/ fails, find in allProducts list
+      if (!prodData && Array.isArray(allProducts)) {
+        prodData = allProducts.find(
+          (p: any) => String(p.product_id || p.id) === String(id)
+        );
+      }
+
+      if (!prodData) {
+        setProduct(null);
+        return;
+      }
+
       const mappedProduct: Product = {
-        product_id: prodData.product_id,
-        name: prodData.name,
+        product_id: String(prodData.product_id || prodData.id || id),
+        name: prodData.name || "Product",
         description: prodData.description || "",
         brand: prodData.brand || "Brand",
         category: prodData.category
           ? prodData.category.charAt(0).toUpperCase() + prodData.category.slice(1).toLowerCase()
           : "General",
-        price: Number(prodData.price),
-        stock: Number(prodData.stock),
+        price: Number(prodData.price || 0),
+        stock: Number(prodData.stock || 0),
         image_url: prodData.image_url || "",
         is_active: prodData.is_active ?? true,
         created_at: prodData.created_at || "",
@@ -86,16 +102,16 @@ function ProductDetail() {
       // Map related items
       if (Array.isArray(allProducts)) {
         const otherProds = allProducts
-          .filter((p) => p.product_id !== id)
+          .filter((p) => String(p.product_id || (p as any).id) !== String(id))
           .slice(0, 4)
           .map((p) => ({
-            product_id: p.product_id,
+            product_id: String(p.product_id || (p as any).id),
             name: p.name,
             description: p.description || "",
             brand: p.brand || "Brand",
             category: p.category || "General",
-            price: Number(p.price),
-            stock: Number(p.stock),
+            price: Number(p.price || 0),
+            stock: Number(p.stock || 0),
             image_url: p.image_url || "",
             is_active: p.is_active ?? true,
             created_at: p.created_at || "",
@@ -107,7 +123,6 @@ function ProductDetail() {
       const errorMessage =
         err?.response?.data?.message || err?.message || "Unable to load product information.";
       setError(errorMessage);
-      toast.error("Failed to load product details");
     } finally {
       setLoading(false);
     }
@@ -308,7 +323,7 @@ function ProductDetail() {
               <Truck className="mt-0.5 size-4 text-foreground" />
               <div>
                 <p className="font-medium text-foreground">Free shipping</p>
-                <p className="text-muted-foreground">Over $50</p>
+                <p className="text-muted-foreground">Over ₹4,000</p>
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -341,7 +356,7 @@ function ProductDetail() {
               </div>
             </TabsContent>
             <TabsContent value="shipping" className="mt-4 rounded-xl border bg-card p-5 text-sm text-muted-foreground">
-              Free standard shipping on all orders over $50. Expedited and international shipping available at checkout.
+              Free standard shipping on all orders over ₹4,000. Express shipping options available at checkout.
             </TabsContent>
           </Tabs>
         </div>

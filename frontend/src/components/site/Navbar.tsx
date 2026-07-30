@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/context/cart-context";
@@ -26,11 +26,12 @@ const baseNav = [
 export function Navbar() {
   const mounted = useMounted();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const { count } = useCart();
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Defer auth-dependent UI rendering until after component mounts on client to guarantee SSR parity
   const isAuth = mounted && isAuthenticated;
   const isAdm = mounted && isAdmin;
   const cartCount = mounted ? count : 0;
@@ -42,9 +43,19 @@ export function Navbar() {
   const initials = isAuth ? getUserInitials(user) : "";
   const fullName = isAuth ? [user?.first_name, user?.last_name].filter(Boolean).join(" ") : "";
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    navigate({ to: "/products", search: { q: searchQuery.trim() } as any });
+    setSearchQuery("");
+    setMobileOpen(false);
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <div className="flex h-16 w-full items-center gap-4 px-4 sm:px-6 lg:px-10">
+
+        {/* Mobile menu */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
@@ -60,33 +71,61 @@ export function Navbar() {
                 <X className="size-5" />
               </Button>
             </div>
+
+            {/* Mobile search */}
+            <form onSubmit={handleSearch} className="border-b px-4 py-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search products…"
+                  className="h-9 pl-9 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </form>
+
             <nav className="flex flex-col p-3">
               {navigation.map((n) => (
                 <Link
                   key={n.to}
                   to={n.to}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted"
+                  className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   {n.label}
                 </Link>
               ))}
               <div className="my-2 h-px bg-border" />
-              <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted">
+              <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
                 Profile
               </Link>
-              <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted">
-                Admin
-              </Link>
+              {isAdm && (
+                <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                  Admin
+                </Link>
+              )}
+              {!isAdm && (
+                <Link to="/cart" onClick={() => setMobileOpen(false)} className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                  <span>Cart</span>
+                  {cartCount > 0 && (
+                    <span className="grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              )}
             </nav>
           </SheetContent>
         </Sheet>
 
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="grid size-7 place-items-center rounded-md bg-foreground text-background text-xs font-bold">H</div>
+          <div className="grid size-7 place-items-center rounded-md bg-foreground text-background text-xs font-bold transition-transform hover:scale-105">H</div>
           <span className="text-[15px] font-semibold tracking-tight">HeisenFlow</span>
         </Link>
 
+        {/* Desktop nav */}
         <nav className="ml-4 hidden items-center gap-1 md:flex">
           {navigation.map((n) => {
             const active = n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
@@ -94,25 +133,33 @@ export function Navbar() {
               <Link
                 key={n.to}
                 to={n.to}
-                className={`rounded-md px-3 py-2 text-sm transition-colors ${
+                className={`relative rounded-md px-3 py-2 text-sm transition-colors ${
                   active ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {n.label}
+                {active && (
+                  <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary" />
+                )}
               </Link>
             );
           })}
         </nav>
 
+        {/* Right actions */}
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative hidden lg:block">
+          {/* Desktop search */}
+          <form onSubmit={handleSearch} className="relative hidden lg:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search products…"
               className="h-9 w-64 bg-muted/50 pl-9 text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
 
+          {/* Cart */}
           {!isAdm && (
             <Button asChild variant="ghost" size="icon" aria-label="Cart" className="relative">
               <Link to="/cart">
@@ -126,6 +173,7 @@ export function Navbar() {
             </Button>
           )}
 
+          {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               {isAuth ? (

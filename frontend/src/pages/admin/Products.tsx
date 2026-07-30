@@ -206,8 +206,10 @@ function AdminProducts() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        Loading products...
+      <div className="mt-6 space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-14 rounded-xl border bg-muted/30 animate-pulse" />
+        ))}
       </div>
     );
   }
@@ -544,6 +546,7 @@ function AdminProducts() {
               <tr>
                 <th className="px-5 py-3 font-medium">Product</th>
                 <th className="px-5 py-3 font-medium">Category</th>
+                <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Stock</th>
                 <th className="px-5 py-3 font-medium">Brand</th>
                 <th className="px-5 py-3 text-right font-medium">Price</th>
@@ -570,6 +573,11 @@ function AdminProducts() {
                     </div>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{p.category}</td>
+                  <td className="px-5 py-3">
+                    {p.is_active
+                      ? <Badge variant="outline" className="border-emerald-500/30 text-emerald-600">Active</Badge>
+                      : <Badge variant="outline" className="border-muted text-muted-foreground">Inactive</Badge>}
+                  </td>
                   <td className="px-5 py-3">
                     {p.stock === 0
                       ? <Badge variant="outline" className="border-destructive/30 text-destructive">Out of stock</Badge>

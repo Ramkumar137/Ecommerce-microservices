@@ -102,7 +102,7 @@ function AdminDashboard() {
   }
 
   const totalRevenue = paymentList
-    .filter((p) => p.status === "SUCCESS" || p.status === ("COMPLETED" as any))
+    .filter((p) => p.status === "SUCCESS" || p.status === "COMPLETED" || p.status === "CONFIRMED")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const lowStock = productList.filter((p) => Number(p.stock) < 10).slice(0, 5);

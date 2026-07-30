@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -131,9 +132,40 @@
   --sidebar-ring: oklch(0.65 0.18 262);
 }
 
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  /* Page-level fade-in for route transitions */
+  .page-enter {
+    animation: page-fade-in 0.18s ease-out both;
+  }
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
+    /* Smooth color/bg transitions on all interactive elements */
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  /* Don't animate layout-affecting properties globally */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
   }
   html, body {
     font-family: var(--font-sans);
@@ -144,8 +176,24 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    /* Prevent layout shift from scrollbar appearing */
+    overflow-y: scroll;
   }
   h1, h2, h3, h4 {
     letter-spacing: -0.02em;
+  }
+  /* Better focus rings for keyboard navigation */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  /* Consistent image rendering */
+  img {
+    display: block;
+    max-width: 100%;
+  }
+  /* Remove tap highlight on mobile */
+  a, button {
+    -webkit-tap-highlight-color: transparent;
   }
 }

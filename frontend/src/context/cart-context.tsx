@@ -411,7 +411,7 @@ export function useCart() {
 }
 
 export function formatPrice(v: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
 }
 
 
