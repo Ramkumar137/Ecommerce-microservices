@@ -136,14 +136,14 @@ function AdminOrders() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="PENDING">PENDING</SelectItem>
-            <SelectItem value="SUCCESS">SUCCESS</SelectItem>
-            <SelectItem value="FAILED">FAILED</SelectItem>
-            <SelectItem value="REFUNDED">REFUNDED</SelectItem>
+            <SelectItem value="CONFIRMED">CONFIRMED</SelectItem>
+            <SelectItem value="PROCESSING">PROCESSING</SelectItem>
+            <SelectItem value="SHIPPED">SHIPPED</SelectItem>
+            <SelectItem value="DELIVERED">DELIVERED</SelectItem>
             <SelectItem value="CANCELLED">CANCELLED</SelectItem>
           </SelectContent>
         </Select>
       </div>
-
       <div className="mt-4 overflow-hidden rounded-xl border bg-card shadow-soft">
         <div className="overflow-x-auto">
           {loading ? (
@@ -237,9 +237,10 @@ function AdminOrders() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PENDING">PENDING</SelectItem>
-                      <SelectItem value="SUCCESS">SUCCESS</SelectItem>
-                      <SelectItem value="FAILED">FAILED</SelectItem>
-                      <SelectItem value="REFUNDED">REFUNDED</SelectItem>
+                      <SelectItem value="CONFIRMED">CONFIRMED</SelectItem>
+                      <SelectItem value="PROCESSING">PROCESSING</SelectItem>
+                      <SelectItem value="SHIPPED">SHIPPED</SelectItem>
+                      <SelectItem value="DELIVERED">DELIVERED</SelectItem>
                       <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                     </SelectContent>
                   </Select>

@@ -78,6 +78,12 @@ function Checkout() {
   const [activeStep, setActiveStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
+  
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<
+    "processing" | "success"
+  >("processing");
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -114,11 +120,12 @@ function Checkout() {
     email: user?.email || "",
     firstName: user?.first_name || "",
     lastName: user?.last_name || "",
+    phone: user?.phone || "",
     address: "",
-    city: "",
+    city: "Chennai",
     zip: "",
-    state: "",
-    country: "United States",
+    state: "TamilNadu",
+    country: "India",
   });
 
   const navigate = useNavigate();
@@ -156,8 +163,8 @@ function Checkout() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
     if (items.length === 0) {
       toast.error("Your cart is empty");
@@ -212,6 +219,8 @@ function Checkout() {
         })),
         total_amount: total,
       };
+
+      
 
       console.log("[1. Create Order Request]", orderPayload);
       let order: any;
@@ -323,10 +332,28 @@ function Checkout() {
       setProcessingStep(null);
     }
   };
+    const handlePayNow = async () => {
+      setShowPaymentModal(true);
+      setPaymentStatus("processing");
+
+     await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setPaymentStatus("success");
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      setShowPaymentModal(false);
+
+      setPaymentCompleted(true);
+
+      setActiveStep(5);
+
+      await handleSubmit();
+    };
 
   const contactSummary = [
     `${formData.firstName} ${formData.lastName}`.trim(),
-    formData.email,
+    formData.email, formData.phone,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -336,7 +363,6 @@ function Checkout() {
     formData.city,
     formData.state,
     formData.zip,
-    formData.country,
   ]
     .filter(Boolean)
     .join(", ");
@@ -383,22 +409,22 @@ function Checkout() {
                 />
               </div>
               <div>
-                <Label htmlFor="firstName">First name</Label>
+                <Label htmlFor="firstName">Full Name</Label>
                 <Input
                   id="firstName"
                   required
                   className="mt-1.5"
-                  value={formData.firstName}
+                  value={formData.firstName+ formData.lastName}
                   onChange={handleInputChange}
                 />
               </div>
               <div>
-                <Label htmlFor="lastName">Last name</Label>
+                <Label htmlFor="lastName">Mobile</Label>
                 <Input
                   id="lastName"
                   required
                   className="mt-1.5"
-                  value={formData.lastName}
+                  value={formData.phone}
                   onChange={handleInputChange}
                 />
               </div>
@@ -456,16 +482,6 @@ function Checkout() {
                   required
                   className="mt-1.5"
                   value={formData.state}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  required
-                  className="mt-1.5"
-                  value={formData.country}
                   onChange={handleInputChange}
                 />
               </div>
@@ -535,7 +551,16 @@ function Checkout() {
             step={4}
             activeStep={activeStep}
             title="Payment"
-          >
+            summaryText={
+                paymentCompleted
+                    ? `Paid via ${paymentMethod.replace("_", " ")}`
+                    : undefined
+            }
+            onEdit={() => {
+                setPaymentCompleted(false);
+                setActiveStep(4);
+            }}
+        >
             <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-3 sm:grid-cols-2">
               <label
                 className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
@@ -610,12 +635,13 @@ function Checkout() {
                   id="bankSelect"
                   className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
                 >
+                  <option value="SBI">State Bank of India</option>
                   <option value="HDFC">HDFC Bank</option>
+                  <option value="SBI">Indian Bank</option>
                   <option value="ICICI">ICICI Bank</option>
-                  <option value="SBI">State Bank of India (SBI)</option>
                   <option value="AXIS">Axis Bank</option>
                   <option value="KOTAK">Kotak Mahindra Bank</option>
-                  <option value="PNB">Punjab National Bank</option>
+                  <option value="PNB">Indian Overseas Bank</option>
                 </select>
                 <p className="mt-2 text-xs text-muted-foreground">
                   You will be redirected to your bank's portal to complete netbanking authentication.
@@ -637,27 +663,50 @@ function Checkout() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button
-                type="submit"
+                type="button"
                 size="lg"
-                className="w-full sm:w-auto font-semibold gap-2"
-                disabled={items.length === 0 || loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
-                    {processingStep || "Processing..."}
-                  </span>
-                ) : (
-                  <>
-                    <Lock className="size-4" /> Place Order ({formatPrice(total)})
-                  </>
-                )}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setActiveStep(3)}>
-                Back to Delivery
+                onClick={
+                  paymentMethod === "COD"
+                      ? handleSubmit
+                      : handlePayNow
+              }
+          >
+              {paymentMethod === "COD"
+                  ? "Place Order"
+                  : "Pay Now"}
               </Button>
             </div>
           </Section>
+
+          {showPaymentModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl p-8 w-96 text-center">
+
+                {paymentStatus === "processing" ? (
+                  <>
+                    <Loader2 className="h-10 w-10 animate-spin mx-auto text-blue-600" />
+                    <h2 className="mt-4 text-xl font-semibold">
+                      Processing Payment
+                    </h2>
+                    <p className="text-gray-500 mt-2">
+                      Please wait...
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-12 w-12 mx-auto text-green-600" />
+                    <h2 className="mt-4 text-xl font-semibold">
+                      Payment Successful
+                    </h2>
+                    <p className="text-gray-500 mt-2">
+                      Redirecting...
+                    </p>
+                  </>
+                )}
+
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Order Summary */}
