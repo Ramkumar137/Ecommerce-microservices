@@ -220,10 +220,6 @@ export function Navbar() {
                     <Link to="/profile">Profile</Link>
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem asChild>
-                    <Link to="/orders">Orders</Link>
-                  </DropdownMenuItem>
-
                   {(user?.role?.toUpperCase() === "ADMIN" || user?.role?.toUpperCase() === "ADMINISTRATOR") && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin">Admin Dashboard</Link>

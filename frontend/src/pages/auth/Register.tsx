@@ -143,7 +143,7 @@ function RegisterPage() {
 
         {field("username", "Username", "text", "janedoe", "username")}
         {field("email", "Email address", "email", "you@example.com", "email")}
-        {field("phone", "Phone number", "tel", "+1 555 000 0000", "tel")}
+        {field("phone", "Phone number", "tel", "+91 99999 88888", "tel")}
 
         {/* Password with toggle + strength */}
         <div className="space-y-1.5">

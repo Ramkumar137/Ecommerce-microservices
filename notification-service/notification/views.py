@@ -16,7 +16,7 @@ from .serializers import (
 )
 
 from .services import NotificationService
-
+from notification.email import EmailService
 
 class NotificationListCreateView(APIView):
 
@@ -224,6 +224,24 @@ class NotificationDeleteView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class TestEmailView(APIView):
+
+    def get(self, request):
+
+        EmailService.send_template_email(
+            to_email="YOUR_EMAIL@gmail.com",
+            subject="HeisernHub Test Email",
+            template_name="test_email.html",
+            context={
+                "title": "Test",
+                "name": "Ram"
+            }
+        )
+
+        return Response({
+            "message": "Email sent successfully."
+        })
 
 class HealthView(APIView):
 

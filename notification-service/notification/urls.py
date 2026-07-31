@@ -7,6 +7,7 @@ from .views import (
     NotificationReadView,
     NotificationReadAllView,
     NotificationDeleteView,
+    TestEmailView,
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path("<str:notification_id>/", NotificationDetailView.as_view(), name="notification-detail",),
     path("<str:notification_id>/read/", NotificationReadView.as_view(), name="notification-read",),
     path("<str:notification_id>/delete/", NotificationDeleteView.as_view(), name="notification-delete",),
+    path("test-email/",TestEmailView.as_view(),name="test-email",),
 ]

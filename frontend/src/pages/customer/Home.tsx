@@ -146,7 +146,7 @@ function HeroCarousel() {
 function TrustBar() {
   return (
     <div className="border-b bg-surface">
-      <div className="mx-auto grid max-w-5xl grid-cols-3 divide-x px-4 py-3 text-xs text-muted-foreground">
+      {/* <div className="mx-auto grid max-w-5xl grid-cols-3 divide-x px-4 py-3 text-xs text-muted-foreground">
         <div className="flex items-center justify-center gap-2 px-4">
           <Truck className="size-4 text-primary" />
           <span><strong className="text-foreground">Free shipping</strong> over ₹4,000</span>
@@ -159,7 +159,7 @@ function TrustBar() {
           <ShieldCheck className="size-4 text-primary" />
           <span><strong className="text-foreground">2-year</strong> warranty</span>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
