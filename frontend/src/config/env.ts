@@ -34,6 +34,10 @@ export const ENV = {
     "VITE_PAYMENT_API_URL",
     "https://l6ae8rtgsh.execute-api.ap-southeast-1.amazonaws.com/api/v1/payments"
   ),
+  ANALYTICS_API_URL: getEnvVar(
+    "VITE_ANALYTICS_API_URL",
+    "http://127.0.0.1:8000/api/v1/analytics"
+  ),
   API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT) || 15000,
   MAX_RETRIES: Number(import.meta.env.VITE_MAX_RETRIES) || 2,
 };

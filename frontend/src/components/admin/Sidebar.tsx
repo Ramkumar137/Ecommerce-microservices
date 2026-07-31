@@ -1,9 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, ShoppingCart, CreditCard, Boxes, Settings, ArrowLeft, Users } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, CreditCard, Boxes, Settings, ArrowLeft, Users, BarChart2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const items = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/analytics", label: "Analytics", icon: BarChart2 },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },

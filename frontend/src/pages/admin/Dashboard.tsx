@@ -114,7 +114,7 @@ function AdminDashboard() {
         description="Overview of your ecommerce microservices performance."
         actions={
           <Button asChild>
-            <Link to="/admin">View Analytics</Link>
+            <Link to="/analytics">View Analytics</Link>
           </Button>
         }
       />

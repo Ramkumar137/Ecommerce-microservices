@@ -4,6 +4,7 @@ from .views import (
     DashboardView,
     SalesView,
     OrdersAnalyticsView,
+    PaymentsAnalyticsView,
     ProductsAnalyticsView,
     RevenueView,
 )
@@ -13,6 +14,7 @@ urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='analytics-dashboard'),
     path('sales/', SalesView.as_view(), name='analytics-sales'),
     path('orders/', OrdersAnalyticsView.as_view(), name='analytics-orders'),
+    path('payments/', PaymentsAnalyticsView.as_view(), name='analytics-payments'),
     path('products/', ProductsAnalyticsView.as_view(), name='analytics-products'),
     path('revenue/', RevenueView.as_view(), name='analytics-revenue'),
 ]

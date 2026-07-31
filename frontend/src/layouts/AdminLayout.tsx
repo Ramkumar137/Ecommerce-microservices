@@ -13,7 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/context/auth-context";
 import { getUserInitials } from "@/utils/user";
 
-function AdminLayout() {
+function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { open, setOpen, toggle } = useSidebarState();
   const { user } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -76,7 +76,7 @@ function AdminLayout() {
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8 page-enter">
-          <Outlet />
+          {children || <Outlet />}
         </main>
       </div>
     </div>

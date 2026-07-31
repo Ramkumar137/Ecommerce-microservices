@@ -114,3 +114,21 @@ export function StatsSkeleton() {
     </div>
   );
 }
+
+/** 6-column KPI skeleton used by the Analytics page */
+export function AnalyticsStatsSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-xl border bg-card p-5 space-y-3 shadow-soft">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="size-8 rounded-md" />
+          </div>
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-3 w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}

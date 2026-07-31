@@ -26,6 +26,7 @@ import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 
 import Dashboard from "@/pages/admin/Dashboard";
+import AnalyticsPage from "@/pages/Analytics";
 import AdminProducts from "@/pages/admin/Products";
 import Inventory from "@/pages/admin/Inventory";
 import AdminOrders from "@/pages/admin/Orders";
@@ -62,8 +63,11 @@ export function AppRoutes() {
           <Route path="register" element={<Register />} />
         </Route>
 
+        <Route path="analytics" element={<AdminRoute><AdminLayout><AnalyticsPage /></AdminLayout></AdminRoute>} />
+
         <Route path="admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<Dashboard />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="products" element={<AdminProducts />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="orders" element={<AdminOrders />} />

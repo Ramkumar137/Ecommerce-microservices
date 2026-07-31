@@ -5,6 +5,7 @@ import orderService from "./order.service";
 import paymentService from "./payment.service";
 import adminService from "./admin.service";
 import userService from "./user.service";
+import { analyticsApi } from "./analyticsApi";
 
 export {
   authService,
@@ -14,6 +15,7 @@ export {
   paymentService,
   adminService,
   userService,
+  analyticsApi,
 };
 
 export default {
@@ -24,4 +26,5 @@ export default {
   payment: paymentService,
   admin: adminService,
   user: userService,
+  analytics: analyticsApi,
 };

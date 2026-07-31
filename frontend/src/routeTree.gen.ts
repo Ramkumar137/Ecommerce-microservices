@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SiteRouteImport } from './routes/_site'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -22,6 +23,7 @@ import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as SiteSettingsRouteImport } from './routes/_site.settings'
 import { Route as SiteProfileRouteImport } from './routes/_site.profile'
 import { Route as SiteProductsRouteImport } from './routes/_site.products'
@@ -37,6 +39,11 @@ import { Route as SiteProductIdRouteImport } from './routes/_site.product.$id'
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -98,6 +105,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
+} as any)
 const SiteSettingsRoute = SiteSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -157,6 +169,7 @@ const SiteProductIdRoute = SiteProductIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
   '/auth': typeof AuthRouteWithChildren
   '/403': typeof Site403Route
   '/500': typeof Site500Route
@@ -167,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -180,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/products/$id': typeof SiteProductsIdRoute
 }
 export interface FileRoutesByTo {
+  '/analytics': typeof AnalyticsRoute
   '/auth': typeof AuthRouteWithChildren
   '/403': typeof Site403Route
   '/500': typeof Site500Route
@@ -190,6 +205,7 @@ export interface FileRoutesByTo {
   '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -207,6 +223,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_site': typeof SiteRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
   '/auth': typeof AuthRouteWithChildren
   '/_site/403': typeof Site403Route
   '/_site/500': typeof Site500Route
@@ -217,6 +234,7 @@ export interface FileRoutesById {
   '/_site/products': typeof SiteProductsRouteWithChildren
   '/_site/profile': typeof SiteProfileRoute
   '/_site/settings': typeof SiteSettingsRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -235,6 +253,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/analytics'
     | '/auth'
     | '/403'
     | '/500'
@@ -245,6 +264,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/profile'
     | '/settings'
+    | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
     | '/admin/payments'
@@ -258,6 +278,7 @@ export interface FileRouteTypes {
     | '/products/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/analytics'
     | '/auth'
     | '/403'
     | '/500'
@@ -268,6 +289,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/profile'
     | '/settings'
+    | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
     | '/admin/payments'
@@ -284,6 +306,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_site'
     | '/admin'
+    | '/analytics'
     | '/auth'
     | '/_site/403'
     | '/_site/500'
@@ -294,6 +317,7 @@ export interface FileRouteTypes {
     | '/_site/products'
     | '/_site/profile'
     | '/_site/settings'
+    | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
     | '/admin/payments'
@@ -311,6 +335,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  AnalyticsRoute: typeof AnalyticsRoute
   AuthRoute: typeof AuthRouteWithChildren
 }
 
@@ -321,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -405,6 +437,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/admin/inventory'
       preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_site/settings': {
@@ -530,6 +569,7 @@ const SiteRouteChildren: SiteRouteChildren = {
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
 interface AdminRouteChildren {
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -540,6 +580,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
@@ -566,6 +607,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  AnalyticsRoute: AnalyticsRoute,
   AuthRoute: AuthRouteWithChildren,
 }
 export const routeTree = rootRouteImport
