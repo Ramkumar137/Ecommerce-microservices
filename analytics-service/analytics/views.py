@@ -28,10 +28,12 @@ def camelize_keys(data):
 
 
 def success_response(data, status_code=status.HTTP_200_OK):
+    camel_data = camelize_keys(data)
+    print("Analytics Debug:", camel_data)
     return Response(
         {
             "success": True,
-            "data": camelize_keys(data),
+            "data": camel_data,
         },
         status=status_code,
     )

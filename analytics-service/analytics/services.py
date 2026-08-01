@@ -413,6 +413,7 @@ class AnalyticsService:
         Returns the DASHBOARD summary record enriched with
         top selling products and recent orders.
         Guarantees exact required response shape and non-null values.
+        Derives summary totals from recent orders/products if summary counter is 0.
         """
         try:
             table = cls.get_table()
@@ -436,17 +437,40 @@ class AnalyticsService:
         except Exception:
             recent_orders = []
 
-        return {
-            "total_revenue": cls._sanitize_number(raw.get("total_revenue"), is_float=True),
-            "total_orders": cls._sanitize_number(raw.get("total_orders")),
-            "total_customers": cls._sanitize_number(raw.get("total_customers")),
-            "total_products": cls._sanitize_number(raw.get("total_products")),
+        sanitized_top_products = cls._sanitize_top_products(top_products)
+        sanitized_recent_orders = cls._sanitize_recent_orders(recent_orders)
+
+        total_rev = cls._sanitize_number(raw.get("total_revenue"), is_float=True)
+        total_ord = cls._sanitize_number(raw.get("total_orders"))
+        total_cust = cls._sanitize_number(raw.get("total_customers"))
+        total_prod = cls._sanitize_number(raw.get("total_products"))
+
+        # Fallback derivations if summary counters are unpopulated/0 but detail records exist
+        if total_ord == 0 and sanitized_recent_orders:
+            total_ord = len(sanitized_recent_orders)
+
+        if total_rev == 0.0 and sanitized_recent_orders:
+            total_rev = sum(o.get("total_amount", 0.0) for o in sanitized_recent_orders)
+
+        if total_cust == 0 and sanitized_recent_orders:
+            total_cust = len({o["user_id"] for o in sanitized_recent_orders if o.get("user_id")})
+
+        if total_prod == 0 and sanitized_top_products:
+            total_prod = len(sanitized_top_products)
+
+        data = {
+            "total_revenue": round(total_rev, 2),
+            "total_orders": total_ord,
+            "total_customers": total_cust,
+            "total_products": total_prod,
             "successful_payments": cls._sanitize_number(raw.get("successful_payments")),
             "failed_payments": cls._sanitize_number(raw.get("failed_payments")),
-            "top_selling_products": cls._sanitize_top_products(top_products),
-            "recent_orders": cls._sanitize_recent_orders(recent_orders),
+            "top_selling_products": sanitized_top_products,
+            "recent_orders": sanitized_recent_orders,
             "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
         }
+        print("Analytics Raw Service Data:", data)
+        return data
 
     @classmethod
     def get_admin_analytics(cls):
@@ -519,6 +543,10 @@ class AnalyticsService:
         except Exception:
             pass
 
+        if total_rev == 0.0:
+            dashboard = cls.get_dashboard_metrics()
+            total_rev = dashboard.get("total_revenue", 0.0)
+
         return {
             "total_revenue": total_rev,
             "total_payments": cls._sanitize_number(payment.get("total_payments")),
@@ -542,14 +570,44 @@ class AnalyticsService:
         except Exception:
             raw = {}
 
+        try:
+            recent_orders = cls._sanitize_recent_orders(cls._get_recent_orders())
+        except Exception:
+            recent_orders = []
+
+        total_ord = cls._sanitize_number(raw.get("total_orders"))
+        pending = cls._sanitize_number(raw.get("pending"))
+        confirmed = cls._sanitize_number(raw.get("confirmed"))
+        processing = cls._sanitize_number(raw.get("processing"))
+        shipped = cls._sanitize_number(raw.get("shipped"))
+        delivered = cls._sanitize_number(raw.get("delivered"))
+        cancelled = cls._sanitize_number(raw.get("cancelled"))
+
+        if total_ord == 0 and recent_orders:
+            total_ord = len(recent_orders)
+            for o in recent_orders:
+                st = str(o.get("status", "")).upper()
+                if st == "PENDING":
+                    pending += 1
+                elif st == "CONFIRMED":
+                    confirmed += 1
+                elif st == "PROCESSING":
+                    processing += 1
+                elif st == "SHIPPED":
+                    shipped += 1
+                elif st == "DELIVERED":
+                    delivered += 1
+                elif st == "CANCELLED":
+                    cancelled += 1
+
         return {
-            "total_orders": cls._sanitize_number(raw.get("total_orders")),
-            "pending": cls._sanitize_number(raw.get("pending")),
-            "confirmed": cls._sanitize_number(raw.get("confirmed")),
-            "processing": cls._sanitize_number(raw.get("processing")),
-            "shipped": cls._sanitize_number(raw.get("shipped")),
-            "delivered": cls._sanitize_number(raw.get("delivered")),
-            "cancelled": cls._sanitize_number(raw.get("cancelled")),
+            "total_orders": total_ord,
+            "pending": pending,
+            "confirmed": confirmed,
+            "processing": processing,
+            "shipped": shipped,
+            "delivered": delivered,
+            "cancelled": cancelled,
             "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
         }
 
