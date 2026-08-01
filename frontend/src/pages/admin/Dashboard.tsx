@@ -101,9 +101,22 @@ function AdminDashboard() {
     }
   }
 
-  const totalRevenue = paymentList
-    .filter((p) => p.status === "SUCCESS" || p.status === "COMPLETED" || p.status === "CONFIRMED")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  let totalRevenue = paymentList
+    .filter((p) => {
+      const st = String(p.status || "").toUpperCase();
+      return st === "SUCCESS" || st === "COMPLETED" || st === "CONFIRMED" || st === "PAID";
+    })
+    .reduce((sum, p) => sum + Number(p.amount || (p as any).total_amount || (p as any).total || 0), 0);
+
+  if (totalRevenue === 0 && orderList.length > 0) {
+    totalRevenue = orderList
+      .filter((o) => String(o.status || "").toUpperCase() !== "CANCELLED")
+      .reduce((sum, o) => sum + Number(o.total_amount || (o as any).amount || 0), 0);
+  }
+
+  const activeProductsCount = productList.filter(
+    (p) => p.is_active === true || String((p as any).is_active).toLowerCase() === "true" || p.is_active === undefined
+  ).length;
 
   const lowStock = productList.filter((p) => Number(p.stock) < 10).slice(0, 5);
 
@@ -134,7 +147,7 @@ function AdminDashboard() {
         />
         <StatCard
           label="Active Products"
-          value={productList.length.toString()}
+          value={activeProductsCount.toString()}
           delta={4.6}
           icon={Package}
         />

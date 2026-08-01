@@ -73,7 +73,10 @@ export const RevenueChart = memo(function RevenueChart() {
               axisLine={false}
               tickFormatter={(v: number) => {
                 const val = isNaN(v) ? 0 : v;
-                return `₹${(val / 1000).toFixed(0)}k`;
+                if (val >= 1000) {
+                  return `₹${(val / 1000).toFixed(1)}k`;
+                }
+                return `₹${val}`;
               }}
               width={48}
             />

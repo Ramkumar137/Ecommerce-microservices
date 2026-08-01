@@ -22,11 +22,13 @@ export function OrdersChart() {
 
     // Fallback 1: Extract trends from recent_orders if trends array is empty/missing
     if (!rawTrends || !rawTrends.length) {
-      if (dashData?.recent_orders?.length) {
+      const recentList = dashData?.recentOrders ?? dashData?.recent_orders;
+      if (recentList && recentList.length) {
         const byDate = new Map<string, number>();
-        for (const order of dashData.recent_orders) {
-          if (!order.updated_at) continue;
-          const dStr = order.updated_at.slice(0, 10);
+        for (const order of recentList) {
+          const dtStr = order.updatedAt || order.updated_at || order.createdAt || order.created_at;
+          if (!dtStr) continue;
+          const dStr = String(dtStr).slice(0, 10);
           byDate.set(dStr, (byDate.get(dStr) ?? 0) + 1);
         }
         rawTrends = Array.from(byDate.entries())

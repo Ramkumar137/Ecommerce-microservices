@@ -59,10 +59,10 @@ export default function AnalyticsPage() {
     refetch: refetchOrders,
   } = useOrderMetrics();
 
-  const totalRevenue = parseSafeNumber(adminData?.revenue ?? dashboard?.total_revenue);
-  const totalOrdersCount = parseSafeNumber(adminData?.totalOrders ?? dashboard?.total_orders);
-  const totalUsersCount = parseSafeNumber(adminData?.totalUsers ?? dashboard?.total_customers);
-  const totalProductsCount = parseSafeNumber(dashboard?.total_products);
+  const totalRevenue = parseSafeNumber(adminData?.revenue ?? dashboard?.totalRevenue ?? dashboard?.total_revenue);
+  const totalOrdersCount = parseSafeNumber(adminData?.totalOrders ?? dashboard?.totalOrders ?? dashboard?.total_orders);
+  const totalUsersCount = parseSafeNumber(adminData?.totalUsers ?? dashboard?.totalCustomers ?? dashboard?.total_customers);
+  const totalProductsCount = parseSafeNumber(dashboard?.totalProducts ?? dashboard?.total_products);
   const pendingOrdersCount = parseSafeNumber(orders?.pending);
   const deliveredOrdersCount = parseSafeNumber(orders?.delivered);
 
