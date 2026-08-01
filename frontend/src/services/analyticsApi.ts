@@ -8,9 +8,21 @@ import type {
   ProductMetrics,
   SalesMetrics,
   AdminAnalyticsData,
+  InventoryMetrics,
+  CustomerMetrics,
 } from "@/types/analytics";
 
 const BASE = ENV.ANALYTICS_API_URL.replace(/\/$/, "");
+
+const unwrapData = (r: any) => {
+  if (r.data && typeof r.data === "object" && "success" in r.data) {
+    if (r.data.success) {
+      return r.data.data;
+    }
+    throw new Error(r.data.message || "Analytics API Error");
+  }
+  return r.data;
+};
 
 export const analyticsApi = {
   getAdminAnalytics(): Promise<AdminAnalyticsData> {
@@ -18,20 +30,19 @@ export const analyticsApi = {
       .get("/api/admin/analytics")
       .catch(() => apiClient.get(`${BASE}/admin/`))
       .then((r) => {
-        console.log("API response from /api/admin/analytics:", r.data);
-        const data = r.data || {};
+        const payload = unwrapData(r) || {};
         return {
-          revenue: data.revenue ?? data.total_revenue ?? 0,
-          totalOrders: data.totalOrders ?? data.total_orders ?? 0,
-          totalUsers: data.totalUsers ?? data.total_customers ?? 0,
-          topProducts: Array.isArray(data.topProducts)
-            ? data.topProducts
-            : Array.isArray(data.top_selling_products)
-            ? data.top_selling_products
+          revenue: payload.revenue ?? payload.totalRevenue ?? payload.total_revenue ?? 0,
+          totalOrders: payload.totalOrders ?? payload.total_orders ?? 0,
+          totalUsers: payload.totalUsers ?? payload.total_customers ?? 0,
+          topProducts: Array.isArray(payload.topProducts)
+            ? payload.topProducts
+            : Array.isArray(payload.top_selling_products)
+            ? payload.top_selling_products
             : [],
-          trends: Array.isArray(data.trends)
-            ? data.trends.map((item: any) => ({
-                date: item.date || item.updated_at || item.created_at || new Date().toISOString().slice(0, 10),
+          trends: Array.isArray(payload.trends)
+            ? payload.trends.map((item: any) => ({
+                date: item.date || item.updatedAt || item.updated_at || new Date().toISOString().slice(0, 10),
                 orders: Number(item.orders ?? item.totalOrders ?? item.total_orders ?? item.count ?? 0),
               }))
             : [],
@@ -40,26 +51,34 @@ export const analyticsApi = {
   },
 
   getDashboard(): Promise<DashboardMetrics> {
-    return apiClient.get(`${BASE}/dashboard/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/dashboard/`).then(unwrapData);
   },
 
   getOrders(): Promise<OrderMetrics> {
-    return apiClient.get(`${BASE}/orders/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/orders/`).then(unwrapData);
   },
 
   getPayments(): Promise<PaymentMetrics> {
-    return apiClient.get(`${BASE}/payments/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/payments/`).then(unwrapData);
   },
 
   getRevenue(): Promise<RevenueMetrics> {
-    return apiClient.get(`${BASE}/revenue/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/revenue/`).then(unwrapData);
   },
 
   getProducts(): Promise<ProductMetrics> {
-    return apiClient.get(`${BASE}/products/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/products/`).then(unwrapData);
   },
 
   getSales(): Promise<SalesMetrics> {
-    return apiClient.get(`${BASE}/sales/`).then((r) => r.data);
+    return apiClient.get(`${BASE}/sales/`).then(unwrapData);
+  },
+
+  getInventory(): Promise<InventoryMetrics> {
+    return apiClient.get(`${BASE}/inventory/`).then(unwrapData);
+  },
+
+  getCustomers(): Promise<CustomerMetrics> {
+    return apiClient.get(`${BASE}/customers/`).then(unwrapData);
   },
 };

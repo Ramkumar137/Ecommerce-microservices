@@ -198,6 +198,21 @@ class AnalyticsService:
                 "metric_type": MetricType.CUSTOMER,
                 "metric_id": MetricId.SUMMARY,
                 "total_customers": Decimal("0"),
+                "cart_abandonment_rate": Decimal("0"),
+                "active_customers": Decimal("0"),
+                "returning_customers": Decimal("0"),
+                "new_customers": Decimal("0"),
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "metric_type": MetricType.INVENTORY,
+                "metric_id": MetricId.SUMMARY,
+                "total_stock": Decimal("0"),
+                "available_stock": Decimal("0"),
+                "reserved_stock": Decimal("0"),
+                "low_stock_products": Decimal("0"),
+                "out_of_stock_products": Decimal("0"),
                 "created_at": now,
                 "updated_at": now,
             },
@@ -334,6 +349,61 @@ class AnalyticsService:
         )
 
     # -------------------------------------------------------------------------
+    # Sanitization Helpers
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _sanitize_number(value, is_float=False):
+        if value is None:
+            return 0.0 if is_float else 0
+        try:
+            val = float(value) if is_float else int(value)
+            return val
+        except (ValueError, TypeError):
+            return 0.0 if is_float else 0
+
+    @classmethod
+    def _sanitize_timestamp(cls, value):
+        if not value or not isinstance(value, str):
+            return cls._timestamp()
+        return value
+
+    @classmethod
+    def _sanitize_top_products(cls, items):
+        if not isinstance(items, list):
+            return []
+        sanitized = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            sanitized.append({
+                "metric_type": str(item.get("metric_type") or MetricType.PRODUCT),
+                "metric_id": str(item.get("metric_id") or ""),
+                "product_name": str(item.get("product_name") or ""),
+                "total_sold": cls._sanitize_number(item.get("total_sold")),
+                "updated_at": cls._sanitize_timestamp(item.get("updated_at")),
+            })
+        return sanitized
+
+    @classmethod
+    def _sanitize_recent_orders(cls, items):
+        if not isinstance(items, list):
+            return []
+        sanitized = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            sanitized.append({
+                "metric_type": str(item.get("metric_type") or MetricType.RECENT_ORDER),
+                "metric_id": str(item.get("metric_id") or ""),
+                "user_id": str(item.get("user_id") or ""),
+                "total_amount": cls._sanitize_number(item.get("total_amount"), is_float=True),
+                "status": str(item.get("status") or ""),
+                "updated_at": cls._sanitize_timestamp(item.get("updated_at")),
+            })
+        return sanitized
+
+    # -------------------------------------------------------------------------
     # Read Methods (called by views)
     # -------------------------------------------------------------------------
 
@@ -342,80 +412,73 @@ class AnalyticsService:
         """
         Returns the DASHBOARD summary record enriched with
         top selling products and recent orders.
+        Guarantees exact required response shape and non-null values.
         """
-        table = cls.get_table()
-
-        response = table.get_item(
-            Key={
-                "metric_type": MetricType.DASHBOARD,
-                "metric_id": MetricId.SUMMARY,
-            }
-        )
-        dashboard = cls._serialize(response.get("Item", {}))
-
-        dashboard["top_selling_products"] = cls._get_top_products()
-        dashboard["recent_orders"] = cls._get_recent_orders()
-
-        return dashboard
-
-    @classmethod
-    def get_admin_analytics(cls):
-        """
-        Returns clean, structured analytics data for /api/admin/analytics:
-        {
-            "revenue": float,
-            "totalOrders": int,
-            "totalUsers": int,
-            "topProducts": list,
-            "trends": list
-        }
-        """
-        table = cls.get_table()
-
         try:
+            table = cls.get_table()
             response = table.get_item(
                 Key={
                     "metric_type": MetricType.DASHBOARD,
                     "metric_id": MetricId.SUMMARY,
                 }
             )
-            raw_dashboard = cls._serialize(response.get("Item", {}))
+            raw = cls._serialize(response.get("Item", {})) or {}
         except Exception:
-            raw_dashboard = {}
-
-        revenue = raw_dashboard.get("total_revenue", 0.0)
-        total_orders = raw_dashboard.get("total_orders", 0)
-        total_users = raw_dashboard.get("total_customers", 0)
+            raw = {}
 
         try:
-            raw_top_products = cls._get_top_products()
+            top_products = cls._get_top_products()
         except Exception:
-            raw_top_products = []
-
-        top_products = [
-            {
-                "id": p.get("metric_id", ""),
-                "name": p.get("product_name", ""),
-                "totalSold": p.get("total_sold", 0),
-            }
-            for p in raw_top_products
-        ]
+            top_products = []
 
         try:
             recent_orders = cls._get_recent_orders()
         except Exception:
             recent_orders = []
 
+        return {
+            "total_revenue": cls._sanitize_number(raw.get("total_revenue"), is_float=True),
+            "total_orders": cls._sanitize_number(raw.get("total_orders")),
+            "total_customers": cls._sanitize_number(raw.get("total_customers")),
+            "total_products": cls._sanitize_number(raw.get("total_products")),
+            "successful_payments": cls._sanitize_number(raw.get("successful_payments")),
+            "failed_payments": cls._sanitize_number(raw.get("failed_payments")),
+            "top_selling_products": cls._sanitize_top_products(top_products),
+            "recent_orders": cls._sanitize_recent_orders(recent_orders),
+            "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
+        }
+
+    @classmethod
+    def get_admin_analytics(cls):
+        """
+        Returns clean, structured analytics data for /api/admin/analytics
+        with guaranteed non-null fields.
+        """
+        dashboard = cls.get_dashboard_metrics()
+
+        top_products = [
+            {
+                "id": str(p.get("metric_id") or ""),
+                "name": str(p.get("product_name") or ""),
+                "totalSold": cls._sanitize_number(p.get("total_sold")),
+            }
+            for p in dashboard.get("top_selling_products", [])
+        ]
+
+        recent_orders = dashboard.get("recent_orders", [])
         by_date = {}
         for o in recent_orders:
             up_at = o.get("updated_at")
-            if up_at:
+            if up_at and isinstance(up_at, str):
                 d_str = up_at[:10]
                 by_date[d_str] = by_date.get(d_str, 0) + 1
 
         if by_date:
             sorted_dates = sorted(by_date.keys())
-            trends = [{"date": d, "orders": by_date[d]} for d in sorted_dates]
+            trends = [
+                {"date": d, "orders": cls._sanitize_number(by_date[d])}
+                for d in sorted_dates
+            ]
         else:
             from datetime import timedelta
             now = datetime.now(timezone.utc)
@@ -425,9 +488,9 @@ class AnalyticsService:
             ]
 
         return {
-            "revenue": float(revenue) if isinstance(revenue, (int, float, Decimal)) else 0.0,
-            "totalOrders": int(total_orders) if isinstance(total_orders, (int, float)) else 0,
-            "totalUsers": int(total_users) if isinstance(total_users, (int, float)) else 0,
+            "revenue": cls._sanitize_number(dashboard.get("total_revenue"), is_float=True),
+            "totalOrders": cls._sanitize_number(dashboard.get("total_orders")),
+            "totalUsers": cls._sanitize_number(dashboard.get("total_customers")),
             "topProducts": top_products,
             "trends": trends,
         }
@@ -435,62 +498,195 @@ class AnalyticsService:
     @classmethod
     def get_sales_metrics(cls):
         """
-        Returns combined revenue and payment summary.
+        Returns combined revenue and payment summary with guaranteed non-null fields.
         """
-        revenue = cls.get_revenue_metrics()
         payment = cls.get_payment_metrics()
 
+        total_rev = 0.0
+        updated_at = payment.get("updated_at")
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.REVENUE,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+            total_rev = cls._sanitize_number(raw.get("total_revenue"), is_float=True)
+            if raw.get("updated_at"):
+                updated_at = cls._sanitize_timestamp(raw.get("updated_at"))
+        except Exception:
+            pass
+
         return {
-            "total_revenue": revenue.get("total_revenue", 0),
-            "successful_payments": payment.get("successful_payments", 0),
-            "failed_payments": payment.get("failed_payments", 0),
-            "total_payments": payment.get("total_payments", 0),
-            "updated_at": revenue.get("updated_at"),
+            "total_revenue": total_rev,
+            "total_payments": cls._sanitize_number(payment.get("total_payments")),
+            "successful_payments": cls._sanitize_number(payment.get("successful_payments")),
+            "failed_payments": cls._sanitize_number(payment.get("failed_payments")),
+            "updated_at": cls._sanitize_timestamp(updated_at),
         }
 
     @classmethod
     def get_order_metrics(cls):
-        """Returns the ORDER summary record."""
-        table = cls.get_table()
-        response = table.get_item(
-            Key={
-                "metric_type": MetricType.ORDER,
-                "metric_id": MetricId.SUMMARY,
-            }
-        )
-        return cls._serialize(response.get("Item", {}))
+        """Returns the ORDER summary record with guaranteed non-null fields."""
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.ORDER,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+        except Exception:
+            raw = {}
+
+        return {
+            "total_orders": cls._sanitize_number(raw.get("total_orders")),
+            "pending": cls._sanitize_number(raw.get("pending")),
+            "confirmed": cls._sanitize_number(raw.get("confirmed")),
+            "processing": cls._sanitize_number(raw.get("processing")),
+            "shipped": cls._sanitize_number(raw.get("shipped")),
+            "delivered": cls._sanitize_number(raw.get("delivered")),
+            "cancelled": cls._sanitize_number(raw.get("cancelled")),
+            "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
+        }
 
     @classmethod
     def get_payment_metrics(cls):
-        """Returns the PAYMENT summary record."""
-        table = cls.get_table()
-        response = table.get_item(
-            Key={
-                "metric_type": MetricType.PAYMENT,
-                "metric_id": MetricId.SUMMARY,
-            }
-        )
-        return cls._serialize(response.get("Item", {}))
+        """Returns the PAYMENT summary record with guaranteed non-null fields."""
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.PAYMENT,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+        except Exception:
+            raw = {}
+
+        return {
+            "total_payments": cls._sanitize_number(raw.get("total_payments")),
+            "successful_payments": cls._sanitize_number(raw.get("successful_payments")),
+            "failed_payments": cls._sanitize_number(raw.get("failed_payments")),
+            "refunded_payments": cls._sanitize_number(raw.get("refunded_payments")),
+            "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
+        }
 
     @classmethod
     def get_product_metrics(cls):
         """
-        Returns all product rows sorted by total_sold descending.
+        Returns all product rows sorted by total_sold descending with guaranteed non-null fields.
         """
-        products = cls._get_top_products(limit=None)
-        return {"products": products, "total": len(products)}
+        try:
+            products = cls._get_top_products(limit=None)
+        except Exception:
+            products = []
+        sanitized_products = cls._sanitize_top_products(products)
+        return {"products": sanitized_products, "total": len(sanitized_products)}
+
+    @classmethod
+    def get_inventory_metrics(cls):
+        """Returns the INVENTORY summary record with guaranteed non-null fields."""
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.INVENTORY,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+        except Exception:
+            raw = {}
+
+        return {
+            "total_stock": cls._sanitize_number(raw.get("total_stock")),
+            "available_stock": cls._sanitize_number(raw.get("available_stock")),
+            "reserved_stock": cls._sanitize_number(raw.get("reserved_stock")),
+            "low_stock_products": cls._sanitize_number(raw.get("low_stock_products")),
+            "out_of_stock_products": cls._sanitize_number(raw.get("out_of_stock_products")),
+            "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
+        }
+
+    @classmethod
+    def get_customer_metrics(cls):
+        """Returns the CUSTOMER summary record with guaranteed non-null fields."""
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.CUSTOMER,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+        except Exception:
+            raw = {}
+
+        return {
+            "cart_abandonment_rate": cls._sanitize_number(raw.get("cart_abandonment_rate"), is_float=True),
+            "active_customers": cls._sanitize_number(raw.get("active_customers") or raw.get("total_customers")),
+            "returning_customers": cls._sanitize_number(raw.get("returning_customers")),
+            "new_customers": cls._sanitize_number(raw.get("new_customers")),
+            "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
+        }
 
     @classmethod
     def get_revenue_metrics(cls):
-        """Returns the REVENUE summary record."""
-        table = cls.get_table()
-        response = table.get_item(
-            Key={
-                "metric_type": MetricType.REVENUE,
-                "metric_id": MetricId.SUMMARY,
+        """
+        Returns clean time-series revenue data as a list of points:
+        [{"date": "YYYY-MM-DD", "revenue": float}, ...]
+        If historical revenue is unavailable, derives daily revenue from recent_orders.
+        """
+        try:
+            recent_orders = cls._get_recent_orders()
+        except Exception:
+            recent_orders = []
+
+        by_date = {}
+        for o in recent_orders:
+            up_at = o.get("updated_at")
+            if up_at and isinstance(up_at, str):
+                d_str = up_at[:10]
+                amt = cls._sanitize_number(o.get("total_amount"), is_float=True)
+                by_date[d_str] = by_date.get(d_str, 0.0) + amt
+
+        if by_date:
+            sorted_dates = sorted(by_date.keys())
+            return [
+                {
+                    "date": d,
+                    "revenue": round(cls._sanitize_number(by_date[d], is_float=True), 2),
+                }
+                for d in sorted_dates
+            ]
+
+        # Fallback if no recent_orders exist: check summary record total_revenue
+        total_rev = 0.0
+        try:
+            table = cls.get_table()
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.REVENUE,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw = cls._serialize(response.get("Item", {})) or {}
+            total_rev = cls._sanitize_number(raw.get("total_revenue"), is_float=True)
+        except Exception:
+            total_rev = 0.0
+
+        now_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return [
+            {
+                "date": now_date,
+                "revenue": total_rev,
             }
-        )
-        return cls._serialize(response.get("Item", {}))
+        ]
 
     # -------------------------------------------------------------------------
     # Private Read Helpers
@@ -557,3 +753,4 @@ class AnalyticsService:
     @staticmethod
     def health():
         return {"status": "UP", "service": "analytics"}
+

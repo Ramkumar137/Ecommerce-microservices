@@ -16,14 +16,17 @@ export function CustomerGrowthChart() {
 
   // Derive unique active customers per day from recent_orders
   const chartData = useMemo(() => {
-    if (!data?.recent_orders?.length) return [];
+    const recentOrders = data?.recentOrders ?? data?.recent_orders;
+    if (!recentOrders?.length) return [];
 
     const byDate = new Map<string, Set<string>>();
-    for (const order of data.recent_orders) {
-      if (!order.updated_at || !order.user_id) continue;
-      const date = order.updated_at.slice(0, 10);
+    for (const order of recentOrders) {
+      const upAt = order.updatedAt ?? order.updated_at;
+      const uId = order.userId ?? order.user_id;
+      if (!upAt || !uId) continue;
+      const date = upAt.slice(0, 10);
       if (!byDate.has(date)) byDate.set(date, new Set());
-      byDate.get(date)!.add(order.user_id);
+      byDate.get(date)!.add(uId);
     }
 
     return Array.from(byDate.entries())

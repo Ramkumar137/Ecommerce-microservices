@@ -8,6 +8,8 @@ from .views import (
     PaymentsAnalyticsView,
     ProductsAnalyticsView,
     RevenueView,
+    InventoryAnalyticsView,
+    CustomerAnalyticsView,
 )
 
 urlpatterns = [
@@ -19,4 +21,6 @@ urlpatterns = [
     path('payments/', PaymentsAnalyticsView.as_view(), name='analytics-payments'),
     path('products/', ProductsAnalyticsView.as_view(), name='analytics-products'),
     path('revenue/', RevenueView.as_view(), name='analytics-revenue'),
+    path('inventory/', InventoryAnalyticsView.as_view(), name='analytics-inventory'),
+    path('customers/', CustomerAnalyticsView.as_view(), name='analytics-customers'),
 ]

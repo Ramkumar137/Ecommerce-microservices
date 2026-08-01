@@ -11,9 +11,9 @@ export function PaymentChart() {
   const chartData = useMemo(() => {
     if (!data) return [];
     return [
-      { name: "Successful", value: data.successful_payments ?? 0 },
-      { name: "Failed", value: data.failed_payments ?? 0 },
-      { name: "Refunded", value: data.refunded_payments ?? 0 },
+      { name: "Successful", value: data.successfulPayments ?? data.successful_payments ?? 0 },
+      { name: "Failed", value: data.failedPayments ?? data.failed_payments ?? 0 },
+      { name: "Refunded", value: data.refundedPayments ?? data.refunded_payments ?? 0 },
     ].filter((d) => d.value > 0);
   }, [data]);
 

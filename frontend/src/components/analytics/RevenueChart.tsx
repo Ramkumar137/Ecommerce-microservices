@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { WidgetCard } from "./WidgetCard";
-import { useAdminAnalytics, useDashboardMetrics } from "@/hooks/useAnalytics";
+import { useRevenueMetrics } from "@/hooks/useAnalytics";
 import { formatCurrency } from "@/utils/format";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,57 +17,36 @@ const CHART_HEIGHT = 220;
 
 export const RevenueChart = memo(function RevenueChart() {
   const queryClient = useQueryClient();
-  const { data: adminData, isLoading: adminLoading, isError: adminError } = useAdminAnalytics();
-  const { data: dashData, isLoading: dashLoading, isRefetching } = useDashboardMetrics();
-
-  const isLoading = adminLoading || dashLoading;
+  const { data: revenueData, isLoading, isError, isRefetching } = useRevenueMetrics();
 
   const chartData = useMemo(() => {
-    // 1. Check revenue from admin API or dashboard metrics
-    const rawRevenue = adminData?.revenue ?? dashData?.total_revenue;
-    const revNum = typeof rawRevenue === "string" ? parseFloat(rawRevenue) : Number(rawRevenue);
-    const safeRevenue = isNaN(revNum) || revNum === null || revNum === undefined ? 0 : revNum;
-
-    // 2. Build time-series trend data from recent_orders if available
-    let points: Array<{ date: string; revenue: number; label: string; value: number }> = [];
-
-    if (dashData?.recent_orders?.length) {
-      const byDate = new Map<string, number>();
-      for (const order of dashData.recent_orders) {
-        if (!order.updated_at) continue;
-        const dStr = order.updated_at.slice(0, 10);
-        const orderAmt = typeof order.total_amount === "string" ? parseFloat(order.total_amount) : Number(order.total_amount || 0);
-        const safeAmt = isNaN(orderAmt) ? 0 : orderAmt;
-        byDate.set(dStr, (byDate.get(dStr) ?? 0) + safeAmt);
-      }
-
-      points = Array.from(byDate.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, rev]) => ({
-          date,
-          revenue: rev,
-          label: "Revenue",
-          value: rev,
-        }));
-    }
-
-    // 3. Ensure fallback format: [{ label: "Revenue", value: safeRevenue }] if no orders exist yet
-    if (!points.length) {
+    const items = Array.isArray(revenueData) ? revenueData : [];
+    if (!items.length) {
       const today = new Date().toISOString().slice(0, 10);
-      points = [{ label: "Revenue", value: safeRevenue, revenue: safeRevenue, date: today }];
+      return [{ date: today, revenue: 0, label: "Revenue", value: 0 }];
     }
 
-    return points;
-  }, [adminData, dashData]);
+    return items.map((item: any) => {
+      const rev = typeof item.revenue === "number" ? item.revenue : Number(item.revenue || 0);
+      const safeRev = isNaN(rev) ? 0 : rev;
+      const dateStr = item.date || new Date().toISOString().slice(0, 10);
+      return {
+        date: dateStr,
+        revenue: safeRev,
+        label: "Revenue",
+        value: safeRev,
+      };
+    });
+  }, [revenueData]);
 
-  const hasData = Boolean(!isLoading && !adminError && chartData && chartData.length > 0);
+  const hasData = Boolean(!isLoading && !isError && chartData && chartData.length > 0);
 
   return (
     <WidgetCard
       title="Revenue Trend"
       loading={isLoading}
-      error={adminError}
-      empty={!isLoading && !adminError && (!chartData || chartData.length === 0)}
+      error={isError}
+      empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
       refetching={isRefetching}
       chartHeight={CHART_HEIGHT}
       onRetry={() => queryClient.invalidateQueries({ queryKey: ["analytics"] })}

@@ -10,23 +10,19 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { WidgetCard } from "./WidgetCard";
-import { useProductMetrics } from "@/hooks/useAnalytics";
+import { useInventoryMetrics } from "@/hooks/useAnalytics";
 
 export function InventoryChart() {
-  const { data, isLoading, isError } = useProductMetrics();
+  const { data, isLoading, isError } = useInventoryMetrics();
 
-  // Categorise products by sales activity as a proxy for inventory health
   const chartData = useMemo(() => {
-    if (!data?.products?.length) return [];
-
-    const inStock = data.products.filter((p) => p.total_sold > 10).length;
-    const lowStock = data.products.filter((p) => p.total_sold > 0 && p.total_sold <= 10).length;
-    const noSales = data.products.filter((p) => p.total_sold === 0).length;
+    if (!data) return [];
 
     return [
-      { label: "High Sales", count: inStock },
-      { label: "Low Sales", count: lowStock },
-      { label: "No Sales", count: noSales },
+      { label: "Available Stock", count: data.availableStock ?? data.available_stock ?? 0 },
+      { label: "Reserved Stock", count: data.reservedStock ?? data.reserved_stock ?? 0 },
+      { label: "Low Stock Items", count: data.lowStockProducts ?? data.low_stock_products ?? 0 },
+      { label: "Out of Stock Items", count: data.outOfStockProducts ?? data.out_of_stock_products ?? 0 },
     ];
   }, [data]);
 
@@ -34,7 +30,7 @@ export function InventoryChart() {
 
   return (
     <WidgetCard
-      title="Product Sales Activity"
+      title="Inventory Breakdown"
       loading={isLoading}
       error={isError}
       empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
@@ -52,11 +48,11 @@ export function InventoryChart() {
               width={32}
             />
             <Tooltip
-              formatter={(value: number) => [value, "Products"]}
+              formatter={(value: number) => [value, "Units / Items"]}
               contentStyle={{ fontSize: 12 }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="count" name="Products" fill="#06b6d4" radius={[4, 4, 0, 0]} maxBarSize={48} />
+            <Bar dataKey="count" name="Inventory Metrics" fill="#06b6d4" radius={[4, 4, 0, 0]} maxBarSize={48} />
           </BarChart>
         </ResponsiveContainer>
       )}

@@ -69,3 +69,19 @@ export function useSalesMetrics() {
     ...baseOptions,
   });
 }
+
+export function useInventoryMetrics() {
+  return useQuery({
+    queryKey: ["analytics", "inventory"],
+    queryFn: analyticsApi.getInventory,
+    ...baseOptions,
+  });
+}
+
+export function useCustomerMetrics() {
+  return useQuery({
+    queryKey: ["analytics", "customers"],
+    queryFn: analyticsApi.getCustomers,
+    ...baseOptions,
+  });
+}

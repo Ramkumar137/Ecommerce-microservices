@@ -10,44 +10,38 @@ import {
   Cell,
 } from "recharts";
 import { WidgetCard } from "./WidgetCard";
-import { useAdminAnalytics, useDashboardMetrics } from "@/hooks/useAnalytics";
+import { useProductMetrics, useAdminAnalytics, useDashboardMetrics } from "@/hooks/useAnalytics";
 
 const BAR_COLOR = "#6366f1";
 
 export function TopProductsChart() {
-  const { data: adminData, isLoading: adminLoading, isError: adminError } = useAdminAnalytics();
+  const { data: productData, isLoading: productLoading, isError: productError } = useProductMetrics();
+  const { data: adminData, isLoading: adminLoading } = useAdminAnalytics();
   const { data: dashData, isLoading: dashLoading } = useDashboardMetrics();
 
-  const isLoading = adminLoading || dashLoading;
+  const isLoading = productLoading || adminLoading || dashLoading;
 
   const chartData = useMemo(() => {
-    // 1. CHECK: topProducts array exists
-    let rawProducts = adminData?.topProducts;
+    let rawProducts: any[] = productData?.products;
 
     if (!rawProducts || !rawProducts.length) {
-      if (dashData?.top_selling_products?.length) {
-        rawProducts = dashData.top_selling_products;
+      if (adminData?.topProducts?.length) {
+        rawProducts = adminData.topProducts;
+      } else if (dashData?.topSellingProducts?.length || dashData?.top_selling_products?.length) {
+        rawProducts = dashData.topSellingProducts ?? dashData.top_selling_products;
       }
     }
 
-    // Fallback products if no sales data exists yet (guarantees visible graph and no empty state)
     if (!rawProducts || !rawProducts.length) {
-      rawProducts = [
-        { name: "Wireless Headphones", sold: 120 },
-        { name: "Smart Watch V2", sold: 95 },
-        { name: "Mechanical Keyboard", sold: 80 },
-        { name: "Ergonomic Chair", sold: 64 },
-        { name: "4K Monitor 27\"", sold: 48 },
-      ];
+      return [];
     }
 
-    // 2. MAP: { name: productName, sold: number }
     const mapped = rawProducts.map((p: any, idx: number) => {
       const rawName =
-        p?.name || p?.product_name || p?.title || p?.productName || `Product #${idx + 1}`;
+        p?.product_name || p?.name || p?.title || p?.productName || `Product #${idx + 1}`;
       
       const rawSold = Number(
-        p?.sold ?? p?.quantity ?? p?.total_sold ?? p?.totalSold ?? p?.sales ?? p?.count ?? 0
+        p?.total_sold ?? p?.sold ?? p?.totalSold ?? p?.quantity ?? p?.count ?? 0
       );
 
       const fullName = String(rawName).trim() || `Product #${idx + 1}`;
@@ -61,20 +55,19 @@ export function TopProductsChart() {
       };
     });
 
-    // 3. SORT descending & Limit to top 8 (between 5 and 10)
     return mapped
       .sort((a, b) => b.sold - a.sold)
       .slice(0, 8);
-  }, [adminData, dashData]);
+  }, [productData, adminData, dashData]);
 
-  const hasData = Boolean(!isLoading && !adminError && chartData && chartData.length > 0);
+  const hasData = Boolean(!isLoading && !productError && chartData && chartData.length > 0);
 
   return (
     <WidgetCard
       title="Top Selling Products"
       loading={isLoading}
-      error={adminError}
-      empty={!isLoading && !adminError && (!chartData || chartData.length === 0)}
+      error={productError}
+      empty={!isLoading && !productError && (!chartData || chartData.length === 0)}
     >
       {hasData && (
         <ResponsiveContainer width="100%" height={280}>

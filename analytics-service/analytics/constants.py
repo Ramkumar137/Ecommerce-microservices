@@ -9,6 +9,7 @@ class MetricType:
     REVENUE = "REVENUE"
     CUSTOMER = "CUSTOMER"
     RECENT_ORDER = "RECENT_ORDER"
+    INVENTORY = "INVENTORY"
 
 
 class MetricId:

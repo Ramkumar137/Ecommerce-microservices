@@ -1,81 +1,99 @@
-// Matches AnalyticsService.get_dashboard_metrics() response
 export interface TopSellingProduct {
-  metric_type: string;
-  metric_id: string;
-  product_name: string;
-  total_sold: number;
-  updated_at: string;
-  created_at?: string;
+  metricType?: string;
+  metricId?: string;
+  productName?: string;
+  totalSold?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  metric_type?: string;
+  metric_id?: string;
+  product_name?: string;
+  total_sold?: number;
+  updated_at?: string;
 }
 
 export interface RecentOrder {
-  metric_type: string;
-  metric_id: string;
-  user_id: string;
-  total_amount: number;
-  status: string;
-  updated_at: string;
+  metricType?: string;
+  metricId?: string;
+  userId?: string;
+  totalAmount?: number;
+  status?: string;
+  updatedAt?: string;
+  // Legacy aliases
+  metric_type?: string;
+  metric_id?: string;
+  user_id?: string;
+  total_amount?: number;
+  updated_at?: string;
 }
 
 export interface DashboardMetrics {
-  metric_type: string;
-  metric_id: string;
-  total_revenue: number;
-  total_orders: number;
-  total_customers: number;
-  total_products: number;
-  successful_payments: number;
-  failed_payments: number;
-  created_at: string;
-  updated_at: string;
-  top_selling_products: TopSellingProduct[];
-  recent_orders: RecentOrder[];
+  totalRevenue?: number;
+  totalOrders?: number;
+  totalCustomers?: number;
+  totalProducts?: number;
+  successfulPayments?: number;
+  failedPayments?: number;
+  topSellingProducts?: TopSellingProduct[];
+  recentOrders?: RecentOrder[];
+  updatedAt?: string;
+  // Legacy aliases
+  total_revenue?: number;
+  total_orders?: number;
+  total_customers?: number;
+  total_products?: number;
+  successful_payments?: number;
+  failed_payments?: number;
+  top_selling_products?: TopSellingProduct[];
+  recent_orders?: RecentOrder[];
+  updated_at?: string;
 }
 
-// Matches AnalyticsService.get_order_metrics() response
 export interface OrderMetrics {
-  metric_type: string;
-  metric_id: string;
-  total_orders: number;
-  pending: number;
-  confirmed: number;
-  processing: number;
-  shipped: number;
-  delivered: number;
-  cancelled: number;
-  created_at: string;
-  updated_at: string;
+  totalOrders?: number;
+  pending?: number;
+  confirmed?: number;
+  processing?: number;
+  shipped?: number;
+  delivered?: number;
+  cancelled?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  total_orders?: number;
+  updated_at?: string;
 }
 
-// Matches AnalyticsService.get_payment_metrics() response
 export interface PaymentMetrics {
-  metric_type: string;
-  metric_id: string;
-  total_payments: number;
-  successful_payments: number;
-  failed_payments: number;
-  refunded_payments: number;
-  created_at: string;
-  updated_at: string;
+  totalPayments?: number;
+  successfulPayments?: number;
+  failedPayments?: number;
+  refundedPayments?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  total_payments?: number;
+  successful_payments?: number;
+  failed_payments?: number;
+  refunded_payments?: number;
+  updated_at?: string;
 }
 
-// Matches AnalyticsService.get_revenue_metrics() response
-export interface RevenueMetrics {
-  metric_type: string;
-  metric_id: string;
-  total_revenue: number;
-  created_at: string;
-  updated_at: string;
+export interface RevenueMetricsPoint {
+  date: string;
+  revenue: number;
 }
 
-// Matches AnalyticsService.get_product_metrics() response
+export type RevenueMetrics = RevenueMetricsPoint[];
+
 export interface ProductMetricsItem {
-  metric_type: string;
-  metric_id: string;
-  product_name: string;
-  total_sold: number;
-  created_at: string;
-  updated_at: string;
+  metricId?: string;
+  productName?: string;
+  totalSold?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  metric_id?: string;
+  product_name?: string;
+  total_sold?: number;
+  updated_at?: string;
 }
 
 export interface ProductMetrics {
@@ -83,13 +101,18 @@ export interface ProductMetrics {
   total: number;
 }
 
-// Matches AnalyticsService.get_sales_metrics() response
 export interface SalesMetrics {
-  total_revenue: number;
-  successful_payments: number;
-  failed_payments: number;
-  total_payments: number;
-  updated_at: string | null;
+  totalRevenue?: number;
+  totalPayments?: number;
+  successfulPayments?: number;
+  failedPayments?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  total_revenue?: number;
+  total_payments?: number;
+  successful_payments?: number;
+  failed_payments?: number;
+  updated_at?: string;
 }
 
 export interface OrderTrendItem {
@@ -108,4 +131,34 @@ export interface AdminAnalyticsData {
     [key: string]: any;
   }>;
   trends: OrderTrendItem[];
+}
+
+export interface InventoryMetrics {
+  totalStock?: number;
+  availableStock?: number;
+  reservedStock?: number;
+  lowStockProducts?: number;
+  outOfStockProducts?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  total_stock?: number;
+  available_stock?: number;
+  reserved_stock?: number;
+  low_stock_products?: number;
+  out_of_stock_products?: number;
+  updated_at?: string;
+}
+
+export interface CustomerMetrics {
+  cartAbandonmentRate?: number;
+  activeCustomers?: number;
+  returningCustomers?: number;
+  newCustomers?: number;
+  updatedAt?: string;
+  // Legacy aliases
+  cart_abandonment_rate?: number;
+  active_customers?: number;
+  returning_customers?: number;
+  new_customers?: number;
+  updated_at?: string;
 }
