@@ -110,7 +110,7 @@ function AdminDashboard() {
 
   for (const p of paymentList) {
     const st = String(p.status || "").toUpperCase();
-    if (st === "SUCCESS" || st === "COMPLETED" || st === "CONFIRMED" || st === "PAID") {
+    if (st !== "FAILED" && st !== "CANCELLED" && st !== "DECLINED" && st !== "REJECTED") {
       paymentRevenue += Number(p.amount || (p as any).total_amount || (p as any).total || 0);
       if (p.order_id) {
         successfulPaymentOrderIds.add(String(p.order_id));
@@ -118,12 +118,10 @@ function AdminDashboard() {
     }
   }
 
-  const paidStatuses = new Set(["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID", "SUCCESS"]);
   let additionalOrderRevenue = 0;
-
   for (const o of orderList) {
     const st = String(o.status || "").toUpperCase();
-    if (paidStatuses.has(st) && !successfulPaymentOrderIds.has(String(o.order_id))) {
+    if (st !== "CANCELLED" && st !== "FAILED" && st !== "REJECTED" && !successfulPaymentOrderIds.has(String(o.order_id))) {
       additionalOrderRevenue += Number(o.total_amount || (o as any).amount || 0);
     }
   }

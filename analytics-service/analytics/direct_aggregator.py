@@ -164,30 +164,29 @@ class DirectDynamoDBAggregator:
         if orders:
             logger.info(f"[Analytics Debug] Sample Order Record: {orders[0]}")
 
-        # 1. Revenue & Payment Counts (Combining Successful Payments + Paid/Confirmed Orders)
+        # 1. Revenue & Payment Counts (All valid active orders and payments, excluding CANCELLED and FAILED)
         successful_payment_order_ids = set()
         successful_payments = []
         failed_payments = []
 
         for p in payments:
             st = str(p.get("status", "")).strip().upper()
-            if _is_successful_payment(st):
+            if st not in ("FAILED", "FAILURE", "DECLINED", "REJECTED", "CANCELLED"):
                 successful_payments.append(p)
                 oid = str(p.get("order_id") or "")
                 if oid:
                     successful_payment_order_ids.add(oid)
-            elif _is_failed_payment(st):
+            else:
                 failed_payments.append(p)
 
         revenue_from_payments = sum(_extract_amount(p) for p in successful_payments)
 
-        # Include orders with confirmed/paid/delivered/processing status that are not already counted in successful_payments
-        paid_order_statuses = ("CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID", "SUCCESS")
+        # Include orders that are not CANCELLED or FAILED and not already counted in successful_payments
         additional_order_revenue = 0.0
         for o in orders:
             oid = str(o.get("order_id") or "")
             st = str(o.get("status", "")).strip().upper()
-            if st in paid_order_statuses and oid not in successful_payment_order_ids:
+            if st not in ("CANCELLED", "FAILED", "REJECTED") and oid not in successful_payment_order_ids:
                 additional_order_revenue += _extract_amount(o)
 
         total_revenue = revenue_from_payments + additional_order_revenue
