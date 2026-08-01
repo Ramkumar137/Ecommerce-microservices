@@ -17,34 +17,38 @@ export function PaymentChart() {
     ].filter((d) => d.value > 0);
   }, [data]);
 
+  const hasData = Boolean(!isLoading && !isError && chartData && chartData.length > 0);
+
   return (
     <WidgetCard
       title="Payment Distribution"
       loading={isLoading}
       error={isError}
-      empty={!isLoading && !isError && chartData.length === 0}
+      empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            outerRadius={90}
-            paddingAngle={3}
-            dataKey="value"
-          >
-            {chartData.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(value: number) => [value.toLocaleString(), "Payments"]}
-            contentStyle={{ fontSize: 12 }}
-          />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      {hasData && (
+        <ResponsiveContainer width="100%" height={240}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              outerRadius={90}
+              paddingAngle={3}
+              dataKey="value"
+            >
+              {chartData.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number) => [value.toLocaleString(), "Payments"]}
+              contentStyle={{ fontSize: 12 }}
+            />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </WidgetCard>
   );
 }

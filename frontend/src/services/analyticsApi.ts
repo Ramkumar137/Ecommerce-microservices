@@ -7,11 +7,38 @@ import type {
   RevenueMetrics,
   ProductMetrics,
   SalesMetrics,
+  AdminAnalyticsData,
 } from "@/types/analytics";
 
 const BASE = ENV.ANALYTICS_API_URL.replace(/\/$/, "");
 
 export const analyticsApi = {
+  getAdminAnalytics(): Promise<AdminAnalyticsData> {
+    return apiClient
+      .get("/api/admin/analytics")
+      .catch(() => apiClient.get(`${BASE}/admin/`))
+      .then((r) => {
+        console.log("API response from /api/admin/analytics:", r.data);
+        const data = r.data || {};
+        return {
+          revenue: data.revenue ?? data.total_revenue ?? 0,
+          totalOrders: data.totalOrders ?? data.total_orders ?? 0,
+          totalUsers: data.totalUsers ?? data.total_customers ?? 0,
+          topProducts: Array.isArray(data.topProducts)
+            ? data.topProducts
+            : Array.isArray(data.top_selling_products)
+            ? data.top_selling_products
+            : [],
+          trends: Array.isArray(data.trends)
+            ? data.trends.map((item: any) => ({
+                date: item.date || item.updated_at || item.created_at || new Date().toISOString().slice(0, 10),
+                orders: Number(item.orders ?? item.totalOrders ?? item.total_orders ?? item.count ?? 0),
+              }))
+            : [],
+        };
+      });
+  },
+
   getDashboard(): Promise<DashboardMetrics> {
     return apiClient.get(`${BASE}/dashboard/`).then((r) => r.data);
   },

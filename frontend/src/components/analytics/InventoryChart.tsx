@@ -30,32 +30,36 @@ export function InventoryChart() {
     ];
   }, [data]);
 
+  const hasData = Boolean(!isLoading && !isError && chartData && chartData.length > 0);
+
   return (
     <WidgetCard
       title="Product Sales Activity"
       loading={isLoading}
       error={isError}
-      empty={!isLoading && !isError && chartData.length === 0}
+      empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
     >
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-          <YAxis
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-            width={32}
-          />
-          <Tooltip
-            formatter={(value: number) => [value, "Products"]}
-            contentStyle={{ fontSize: 12 }}
-          />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="count" name="Products" fill="#06b6d4" radius={[4, 4, 0, 0]} maxBarSize={48} />
-        </BarChart>
-      </ResponsiveContainer>
+      {hasData && (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+              width={32}
+            />
+            <Tooltip
+              formatter={(value: number) => [value, "Products"]}
+              contentStyle={{ fontSize: 12 }}
+            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="count" name="Products" fill="#06b6d4" radius={[4, 4, 0, 0]} maxBarSize={48} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </WidgetCard>
   );
 }

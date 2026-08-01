@@ -36,7 +36,7 @@ export const ENV = {
   ),
   ANALYTICS_API_URL: getEnvVar(
     "VITE_ANALYTICS_API_URL",
-    "http://127.0.0.1:8000/api/v1/analytics"
+    "http://localhost:8000/api/v1/analytics"
   ),
   API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT) || 15000,
   MAX_RETRIES: Number(import.meta.env.VITE_MAX_RETRIES) || 2,

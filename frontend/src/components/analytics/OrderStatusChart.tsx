@@ -27,35 +27,39 @@ export function OrderStatusChart() {
     ].filter((d) => d.value > 0);
   }, [data]);
 
+  const hasData = Boolean(!isLoading && !isError && chartData && chartData.length > 0);
+
   return (
     <WidgetCard
       title="Order Status Distribution"
       loading={isLoading}
       error={isError}
-      empty={!isLoading && !isError && chartData.length === 0}
+      empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={90}
-            paddingAngle={3}
-            dataKey="value"
-          >
-            {chartData.map((entry) => (
-              <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#94a3b8"} />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(value: number) => [value.toLocaleString(), "Orders"]}
-            contentStyle={{ fontSize: 12 }}
-          />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      {hasData && (
+        <ResponsiveContainer width="100%" height={240}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={90}
+              paddingAngle={3}
+              dataKey="value"
+            >
+              {chartData.map((entry) => (
+                <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#94a3b8"} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number) => [value.toLocaleString(), "Orders"]}
+              contentStyle={{ fontSize: 12 }}
+            />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </WidgetCard>
   );
 }

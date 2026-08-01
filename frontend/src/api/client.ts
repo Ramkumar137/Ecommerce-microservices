@@ -9,7 +9,7 @@ import { toast } from "sonner";
  */
 export const apiClient = axios.create({
   timeout: ENV.API_TIMEOUT,
-  withCredentials: false,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -37,17 +37,34 @@ apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     let token = storage.getAccessToken();
 
-    // Fallback: Check cookies if not found in storage
+    // Fallback 1: Check sessionStorage if not found in localStorage
+    if (!token && typeof sessionStorage !== "undefined") {
+      token =
+        sessionStorage.getItem("access_token") ||
+        sessionStorage.getItem("admin_access_token") ||
+        sessionStorage.getItem("token") ||
+        sessionStorage.getItem("jwt");
+    }
+
+    // Fallback 2: Check cookies if not found in storage
     if (!token && typeof document !== "undefined") {
-      const cookieMatch = document.cookie.match(/(?:access_token|token|jwt)=([^;]+)/);
+      const cookieMatch = document.cookie.match(/(?:access_token|admin_access_token|token|jwt)=([^;]+)/);
       if (cookieMatch && cookieMatch[1]) {
         token = cookieMatch[1];
       }
     }
 
+    // Strict validation: Ensure token is present, non-empty, and not literal "undefined" / "null" string
+    const isValidToken =
+      Boolean(token) &&
+      typeof token === "string" &&
+      token !== "undefined" &&
+      token !== "null" &&
+      token.trim() !== "";
+
     const refreshToken = storage.getRefreshToken();
 
-    if (token) {
+    if (isValidToken && token) {
       // Pre-validate JWT expiry
       if (isJwtExpired(token) && (!refreshToken || isJwtExpired(refreshToken))) {
         handleSessionExpired();
@@ -75,6 +92,7 @@ apiClient.interceptors.request.use(
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
       headers: config.headers ? { Authorization: config.headers.Authorization } : {},
       data: config.data,
+      withCredentials: config.withCredentials,
     });
 
     return config;
@@ -148,7 +166,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle 403 Forbidden due to permission or token issues
+    // Handle 403 Forbidden due to permission or scope restrictions (DO NOT LOGOUT ON 403; ONLY LOGOUT ON 401)
     if (status === 403) {
       console.error("[API 403 Error Detail]", {
         url: originalRequest.url,
@@ -162,22 +180,7 @@ apiClient.interceptors.response.use(
         toast.error("Admin access required", { id: "admin-access-required-toast" });
       }
 
-      const errorMsg =
-        typeof responseData === "string"
-          ? responseData
-          : responseData?.message || responseData?.error || responseData?.detail || "";
-
-      const isTokenError =
-        typeof errorMsg === "string" &&
-        (errorMsg.toLowerCase().includes("token") ||
-          errorMsg.toLowerCase().includes("expired") ||
-          errorMsg.toLowerCase().includes("unauthorized") ||
-          errorMsg.toLowerCase().includes("invalid signature"));
-
-      if (isTokenError) {
-        handleSessionExpired();
-        return Promise.reject(error);
-      }
+      return Promise.reject(error);
     }
 
     // Exponential Backoff Retry mechanism for network errors / 5xx server errors

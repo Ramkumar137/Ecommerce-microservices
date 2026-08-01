@@ -31,48 +31,52 @@ export function CustomerGrowthChart() {
       .map(([date, users]) => ({ date, customers: users.size }));
   }, [data]);
 
+  const hasData = Boolean(!isLoading && !isError && chartData && chartData.length > 0);
+
   return (
     <WidgetCard
       title="Active Customers per Day"
       loading={isLoading}
       error={isError}
-      empty={!isLoading && !isError && chartData.length === 0}
+      empty={!isLoading && !isError && (!chartData || chartData.length === 0)}
     >
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(v: string) => {
-              const d = new Date(v);
-              return `${d.getDate()} ${d.toLocaleString("en", { month: "short" })}`;
-            }}
-          />
-          <YAxis
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-            width={32}
-          />
-          <Tooltip
-            formatter={(value: number) => [value, "Customers"]}
-            labelFormatter={(label: string) => new Date(label).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            contentStyle={{ fontSize: 12 }}
-          />
-          <Line
-            type="monotone"
-            dataKey="customers"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            dot={{ r: 3, fill: "#f59e0b" }}
-            activeDot={{ r: 5 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      {hasData && (
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: string) => {
+                const d = new Date(v);
+                return `${d.getDate()} ${d.toLocaleString("en", { month: "short" })}`;
+              }}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+              width={32}
+            />
+            <Tooltip
+              formatter={(value: number) => [value, "Customers"]}
+              labelFormatter={(label: string) => new Date(label).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              contentStyle={{ fontSize: 12 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="customers"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "#f59e0b" }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </WidgetCard>
   );
 }

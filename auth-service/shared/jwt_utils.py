@@ -10,6 +10,20 @@ class JWTService:
     """
 
     @staticmethod
+    def get_secret_key():
+        import os
+        return (
+            getattr(settings, "JWT_SECRET_KEY", None)
+            or os.getenv("JWT_SECRET_KEY")
+            or os.getenv("SECRET_KEY")
+            or "django-insecure-shared-ecommerce-jwt-secret-key-2026"
+        )
+
+    @staticmethod
+    def get_algorithm():
+        return getattr(settings, "JWT_ALGORITHM", "HS256")
+
+    @staticmethod
     def generate_access_token(user):
         """
         Generate Access Token.
@@ -27,8 +41,8 @@ class JWTService:
 
         return jwt.encode(
             payload,
-            settings.JWT_SECRET_KEY,
-            algorithm=settings.JWT_ALGORITHM,
+            JWTService.get_secret_key(),
+            algorithm=JWTService.get_algorithm(),
         )
 
     @staticmethod
@@ -48,8 +62,8 @@ class JWTService:
 
         return jwt.encode(
             payload,
-            settings.JWT_SECRET_KEY,
-            algorithm=settings.JWT_ALGORITHM,
+            JWTService.get_secret_key(),
+            algorithm=JWTService.get_algorithm(),
         )
 
     @staticmethod
@@ -61,8 +75,8 @@ class JWTService:
         try:
             payload = jwt.decode(
                 token,
-                settings.JWT_SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM],
+                JWTService.get_secret_key(),
+                algorithms=[JWTService.get_algorithm()],
             )
 
             return payload

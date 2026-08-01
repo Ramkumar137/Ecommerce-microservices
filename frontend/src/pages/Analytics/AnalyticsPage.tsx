@@ -22,12 +22,25 @@ import { RevenueChart } from "@/components/analytics/RevenueChart";
 import { OrdersChart } from "@/components/analytics/OrdersChart";
 import { CustomerGrowthChart } from "@/components/analytics/CustomerGrowthChart";
 import { InventoryChart } from "@/components/analytics/InventoryChart";
-import { useDashboardMetrics, useOrderMetrics } from "@/hooks/useAnalytics";
+import { useAdminAnalytics, useDashboardMetrics, useOrderMetrics } from "@/hooks/useAnalytics";
 import { formatCurrency } from "@/utils/format";
 import { useQueryClient } from "@tanstack/react-query";
 
+const parseSafeNumber = (val: any): number => {
+  if (val === undefined || val === null) return 0;
+  const num = typeof val === "string" ? parseFloat(val) : Number(val);
+  return isNaN(num) ? 0 : num;
+};
+
 export default function AnalyticsPage() {
   const queryClient = useQueryClient();
+
+  const {
+    data: adminData,
+    isLoading: adminLoading,
+    isError: adminError,
+    error: adminErrDetail,
+  } = useAdminAnalytics();
 
   const {
     data: dashboard,
@@ -46,9 +59,16 @@ export default function AnalyticsPage() {
     refetch: refetchOrders,
   } = useOrderMetrics();
 
-  const kpiLoading = dashLoading || ordersLoading;
-  const isError = dashError || ordersError;
-  const errorObj = dashErrDetail || ordersErrDetail;
+  const totalRevenue = parseSafeNumber(adminData?.revenue ?? dashboard?.total_revenue);
+  const totalOrdersCount = parseSafeNumber(adminData?.totalOrders ?? dashboard?.total_orders);
+  const totalUsersCount = parseSafeNumber(adminData?.totalUsers ?? dashboard?.total_customers);
+  const totalProductsCount = parseSafeNumber(dashboard?.total_products);
+  const pendingOrdersCount = parseSafeNumber(orders?.pending);
+  const deliveredOrdersCount = parseSafeNumber(orders?.delivered);
+
+  const kpiLoading = adminLoading || dashLoading || ordersLoading;
+  const isError = adminError || dashError || ordersError;
+  const errorObj = adminErrDetail || dashErrDetail || ordersErrDetail;
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
@@ -108,32 +128,32 @@ export default function AnalyticsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <StatCard
               label="Total Revenue"
-              value={formatCurrency(dashboard?.total_revenue ?? 0)}
+              value={formatCurrency(totalRevenue)}
               icon={DollarSign}
             />
             <StatCard
               label="Total Orders"
-              value={(dashboard?.total_orders ?? 0).toLocaleString()}
+              value={totalOrdersCount.toLocaleString("en-US")}
               icon={ShoppingBag}
             />
             <StatCard
               label="Total Customers"
-              value={(dashboard?.total_customers ?? 0).toLocaleString()}
+              value={totalUsersCount.toLocaleString("en-US")}
               icon={Users}
             />
             <StatCard
               label="Total Products"
-              value={(dashboard?.total_products ?? 0).toLocaleString()}
+              value={totalProductsCount.toLocaleString("en-US")}
               icon={Package}
             />
             <StatCard
               label="Pending Orders"
-              value={(orders?.pending ?? 0).toLocaleString()}
+              value={pendingOrdersCount.toLocaleString("en-US")}
               icon={Clock}
             />
             <StatCard
               label="Delivered Orders"
-              value={(orders?.delivered ?? 0).toLocaleString()}
+              value={deliveredOrdersCount.toLocaleString("en-US")}
               icon={CheckCircle2}
             />
           </div>

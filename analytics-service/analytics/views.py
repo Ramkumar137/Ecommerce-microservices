@@ -31,6 +31,21 @@ class DashboardView(APIView):
             )
 
 
+class AdminAnalyticsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        try:
+            data = AnalyticsService.get_admin_analytics()
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class SalesView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdmin]

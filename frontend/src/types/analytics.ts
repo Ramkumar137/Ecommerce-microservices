@@ -91,3 +91,21 @@ export interface SalesMetrics {
   total_payments: number;
   updated_at: string | null;
 }
+
+export interface OrderTrendItem {
+  date: string;
+  orders: number;
+}
+
+export interface AdminAnalyticsData {
+  revenue: number;
+  totalOrders: number;
+  totalUsers: number;
+  topProducts: Array<{
+    id?: string;
+    name?: string;
+    totalSold?: number;
+    [key: string]: any;
+  }>;
+  trends: OrderTrendItem[];
+}

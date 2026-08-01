@@ -14,6 +14,14 @@ const baseOptions = {
   placeholderData: keepPreviousData,
 };
 
+export function useAdminAnalytics() {
+  return useQuery({
+    queryKey: ["analytics", "admin"],
+    queryFn: analyticsApi.getAdminAnalytics,
+    ...baseOptions,
+  });
+}
+
 export function useDashboardMetrics() {
   return useQuery({
     queryKey: ["analytics", "dashboard"],

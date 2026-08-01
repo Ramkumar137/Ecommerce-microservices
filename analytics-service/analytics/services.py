@@ -18,9 +18,7 @@ class AnalyticsService:
 
     @staticmethod
     def get_table():
-        table_name = os.getenv("ANALYTICS_TABLE")
-        if not table_name:
-            raise ValueError("ANALYTICS_TABLE environment variable not set")
+        table_name = os.getenv("ANALYTICS_TABLE", "EcommerceAnalytics")
         return get_table(table_name)
 
     @staticmethod
@@ -359,6 +357,80 @@ class AnalyticsService:
         dashboard["recent_orders"] = cls._get_recent_orders()
 
         return dashboard
+
+    @classmethod
+    def get_admin_analytics(cls):
+        """
+        Returns clean, structured analytics data for /api/admin/analytics:
+        {
+            "revenue": float,
+            "totalOrders": int,
+            "totalUsers": int,
+            "topProducts": list,
+            "trends": list
+        }
+        """
+        table = cls.get_table()
+
+        try:
+            response = table.get_item(
+                Key={
+                    "metric_type": MetricType.DASHBOARD,
+                    "metric_id": MetricId.SUMMARY,
+                }
+            )
+            raw_dashboard = cls._serialize(response.get("Item", {}))
+        except Exception:
+            raw_dashboard = {}
+
+        revenue = raw_dashboard.get("total_revenue", 0.0)
+        total_orders = raw_dashboard.get("total_orders", 0)
+        total_users = raw_dashboard.get("total_customers", 0)
+
+        try:
+            raw_top_products = cls._get_top_products()
+        except Exception:
+            raw_top_products = []
+
+        top_products = [
+            {
+                "id": p.get("metric_id", ""),
+                "name": p.get("product_name", ""),
+                "totalSold": p.get("total_sold", 0),
+            }
+            for p in raw_top_products
+        ]
+
+        try:
+            recent_orders = cls._get_recent_orders()
+        except Exception:
+            recent_orders = []
+
+        by_date = {}
+        for o in recent_orders:
+            up_at = o.get("updated_at")
+            if up_at:
+                d_str = up_at[:10]
+                by_date[d_str] = by_date.get(d_str, 0) + 1
+
+        if by_date:
+            sorted_dates = sorted(by_date.keys())
+            trends = [{"date": d, "orders": by_date[d]} for d in sorted_dates]
+        else:
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+            trends = [
+                {"date": (now - timedelta(days=i)).strftime("%Y-%m-%d"), "orders": 0}
+                for i in range(6, -1, -1)
+            ]
+
+        return {
+            "revenue": float(revenue) if isinstance(revenue, (int, float, Decimal)) else 0.0,
+            "totalOrders": int(total_orders) if isinstance(total_orders, (int, float)) else 0,
+            "totalUsers": int(total_users) if isinstance(total_users, (int, float)) else 0,
+            "topProducts": top_products,
+            "trends": trends,
+        }
 
     @classmethod
     def get_sales_metrics(cls):

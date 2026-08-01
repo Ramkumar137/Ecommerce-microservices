@@ -7,19 +7,30 @@ class JWTAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
         auth_header = request.headers.get("Authorization")
+        token = None
 
-        if not auth_header:
+        if auth_header:
+            if not auth_header.startswith("Bearer "):
+                raise AuthenticationFailed("Invalid authorization header.")
+
+            parts = auth_header.split()
+
+            if len(parts) != 2 or parts[0] != "Bearer":
+                raise AuthenticationFailed("Invalid authorization header.")
+
+            token = parts[1]
+
+        # Fallback: Extract JWT token from cookies if Authorization header is missing
+        if not token and hasattr(request, "COOKIES") and request.COOKIES:
+            token = (
+                request.COOKIES.get("admin_access_token")
+                or request.COOKIES.get("access_token")
+                or request.COOKIES.get("token")
+                or request.COOKIES.get("jwt")
+            )
+
+        if not token or token == "undefined" or token == "null":
             return None
-
-        if not auth_header.startswith("Bearer "):
-            raise AuthenticationFailed("Invalid authorization header.")
-
-        parts = auth_header.split()
-
-        if len(parts) != 2 or parts[0] != "Bearer":
-            raise AuthenticationFailed("Invalid authorization header.")
-
-        token = parts[1]
 
         try:
             payload = JWTService.verify_token(token)
