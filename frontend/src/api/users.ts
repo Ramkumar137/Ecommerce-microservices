@@ -4,24 +4,38 @@ import type { User } from "@/types/auth";
 import { storage } from "@/utils/storage";
 
 const AUTH_URL = ENV.AUTH_API_URL.replace(/\/$/, "");
+const ANALYTICS_URL = ENV.ANALYTICS_API_URL.replace(/\/$/, "");
 const ORDER_URL = ENV.ORDER_API_URL.replace(/\/$/, "");
 
 export const usersApi = {
   async listAdmin(): Promise<User[]> {
     try {
-      // 1. Primary: Auth Service /users/ endpoint
+      // 1. Primary: Direct DynamoDB Users via Analytics Service or Auth Service
       const res = await apiClient
-        .get(`${AUTH_URL}/users/`)
+        .get(`${ANALYTICS_URL}/users/`)
+        .catch(() => apiClient.get(`${AUTH_URL}/users/`))
+        .catch(() => apiClient.get("http://localhost:8000/api/v1/analytics/users/"))
         .catch(() => apiClient.get("http://localhost:8000/api/v1/auth/users/"))
-        .catch(() => apiClient.get("http://localhost:8000/users/"))
-        .catch(() => apiClient.get(`${AUTH_URL.replace(/\/auth\/?$/, "")}/users/`));
+        .catch(() => apiClient.get("http://localhost:8000/users/"));
 
       const raw = Array.isArray(res?.data)
         ? res.data
+        : res?.data?.data && Array.isArray(res.data.data)
+        ? res.data.data
         : res?.data?.results || res?.data?.users || [];
 
       if (raw.length > 0) {
-        return raw;
+        return raw.map((u: any) => ({
+          user_id: u.user_id || u.userId || u.id,
+          first_name: u.first_name || u.firstName || "User",
+          last_name: u.last_name || u.lastName || "",
+          email: u.email || "",
+          username: u.username || u.user_id || "",
+          phone: u.phone || "",
+          role: String(u.role || "CUSTOMER").toUpperCase(),
+          is_active: u.is_active ?? true,
+          created_at: u.created_at || u.createdAt,
+        }));
       }
     } catch (e) {
       console.warn("[usersApi listAdmin primary failed, trying order/session fallback]", e);

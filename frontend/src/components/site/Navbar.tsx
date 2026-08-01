@@ -1,7 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, User, X, Bell, Heart } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/context/cart-context";
+import { useWishlist } from "@/context/wishlist-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
@@ -18,6 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
+import { NotificationPopover } from "@/components/common/NotificationPopover";
+
 const baseNav = [
   { to: "/", label: "Home" },
   { to: "/products", label: "Products" },
@@ -28,6 +31,7 @@ export function Navbar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { count } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,12 +39,14 @@ export function Navbar() {
   const isAuth = mounted && isAuthenticated;
   const isAdm = mounted && isAdmin;
   const cartCount = mounted ? count : 0;
+  const totalWishlist = mounted ? wishlistCount : 0;
 
-  const navigation = isAuth
+  // Hide Orders link in main Navbar if user is ADMIN
+  const navigation = isAuth && !isAdm
     ? [...baseNav, { to: "/orders", label: "Orders" }]
     : baseNav;
 
-  const initials = isAuth ? getUserInitials(user) : "";
+  const initials = isAuth ? (isAdm ? "ADMIN" : getUserInitials(user)) : "";
   const fullName = isAuth ? [user?.first_name, user?.last_name].filter(Boolean).join(" ") : "";
 
   const handleSearch = (e: React.FormEvent) => {
@@ -97,12 +103,18 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="my-2 h-px bg-border" />
-              <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
-                Profile
-              </Link>
-              {isAdm && (
-                <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
-                  Admin
+              {isAdm ? (
+                <>
+                  <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                    Admin Dashboard
+                  </Link>
+                  <Link to="/admin/settings" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                    Settings
+                  </Link>
+                </>
+              ) : (
+                <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                  Profile
                 </Link>
               )}
               {!isAdm && (
@@ -159,6 +171,23 @@ export function Navbar() {
             />
           </form>
 
+          {/* Notification Symbol between Search and Profile Icon */}
+          {isAuth && <NotificationPopover />}
+
+          {/* Wishlist */}
+          {!isAdm && (
+            <Button asChild variant="ghost" size="icon" aria-label="Wishlist" className="relative">
+              <Link to="/wishlist">
+                <Heart className="size-5" />
+                {totalWishlist > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-red-500 text-[10px] font-semibold text-white">
+                    {totalWishlist}
+                  </span>
+                )}
+              </Link>
+            </Button>
+          )}
+
           {/* Cart */}
           {!isAdm && (
             <Button asChild variant="ghost" size="icon" aria-label="Cart" className="relative">
@@ -177,12 +206,18 @@ export function Navbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               {isAuth ? (
-                <Button variant="ghost" className="relative size-9 rounded-full p-0" aria-label="User menu">
-                  <Avatar className="size-9 border bg-muted">
-                    <AvatarFallback className="bg-primary font-semibold text-xs text-primary-foreground">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                <Button variant="ghost" className="relative h-9 px-2.5 rounded-full" aria-label="User menu">
+                  {isAdm ? (
+                    <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold tracking-wider text-primary border border-primary/20">
+                      ADMIN
+                    </span>
+                  ) : (
+                    <Avatar className="size-8 border bg-muted">
+                      <AvatarFallback className="bg-primary font-semibold text-xs text-primary-foreground">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                 </Button>
               ) : (
                 <Button variant="ghost" size="icon" aria-label="Sign in">
@@ -206,7 +241,7 @@ export function Navbar() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {fullName || user?.username || "User Account"}
+                        {fullName || user?.username || (isAdm ? "Admin User" : "User Account")}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {user?.email || "No email available"}
@@ -216,14 +251,24 @@ export function Navbar() {
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile">Profile</Link>
-                  </DropdownMenuItem>
-
-                  {(user?.role?.toUpperCase() === "ADMIN" || user?.role?.toUpperCase() === "ADMINISTRATOR") && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin">Admin Dashboard</Link>
-                    </DropdownMenuItem>
+                  {isAdm ? (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">Admin Dashboard</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/settings">Settings</Link>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">Settings</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/orders">My Orders</Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
 
                   <DropdownMenuSeparator />

@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   login: (data: LoginRequest) => Promise<User>;
   register: (data: RegisterRequest) => Promise<User>;
+  loginWithGoogle: (googleEmail?: string, googleName?: string) => Promise<User>;
   logout: () => void;
   updateUserProfile: (data: UpdateProfileRequest) => Promise<User>;
   isAuthenticated: boolean;
@@ -79,6 +80,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await AuthService.register(data);
   };
 
+  const loginWithGoogle = async (
+    googleEmail = "user.google@gmail.com",
+    googleName = "Google Customer"
+  ): Promise<User> => {
+    const names = googleName.trim().split(" ");
+    const firstName = names[0] || "Google";
+    const lastName = names.slice(1).join(" ") || "User";
+
+    const googleUser: User = {
+      user_id: `google_${Date.now()}`,
+      id: `google_${Date.now()}`,
+      email: googleEmail,
+      username: googleEmail.split("@")[0] || "google_user",
+      first_name: firstName,
+      last_name: lastName,
+      role: "CUSTOMER",
+      is_active: true,
+    };
+
+    const mockPayload = {
+      user_id: googleUser.user_id,
+      email: googleUser.email,
+      role: googleUser.role,
+      exp: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+    };
+
+    const base64Payload = btoa(JSON.stringify(mockPayload));
+    const mockJwt = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${base64Payload}.google_auth_signature`;
+
+    storage.setTokens({ access: mockJwt, refresh: mockJwt });
+    storage.setUser(googleUser);
+    setUser(googleUser);
+    return googleUser;
+  };
+
   const logout = () => {
     setUser(null);
     performFullLogout(false);
@@ -107,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         login,
         register,
+        loginWithGoogle,
         logout,
         updateUserProfile,
         isAuthenticated,

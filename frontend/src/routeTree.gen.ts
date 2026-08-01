@@ -24,6 +24,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as SiteWishlistRouteImport } from './routes/_site.wishlist'
 import { Route as SiteSettingsRouteImport } from './routes/_site.settings'
 import { Route as SiteProfileRouteImport } from './routes/_site.profile'
 import { Route as SiteProductsRouteImport } from './routes/_site.products'
@@ -110,6 +111,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const SiteWishlistRoute = SiteWishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => SiteRoute,
+} as any)
 const SiteSettingsRoute = SiteSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
+  '/wishlist': typeof SiteWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
+  '/wishlist': typeof SiteWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/_site/products': typeof SiteProductsRouteWithChildren
   '/_site/profile': typeof SiteProfileRoute
   '/_site/settings': typeof SiteSettingsRoute
+  '/_site/wishlist': typeof SiteWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/profile'
     | '/settings'
+    | '/wishlist'
     | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/profile'
     | '/settings'
+    | '/wishlist'
     | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/_site/products'
     | '/_site/profile'
     | '/_site/settings'
+    | '/_site/wishlist'
     | '/admin/analytics'
     | '/admin/inventory'
     | '/admin/orders'
@@ -446,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_site/wishlist': {
+      id: '/_site/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof SiteWishlistRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/_site/settings': {
       id: '/_site/settings'
       path: '/settings'
@@ -548,6 +567,7 @@ interface SiteRouteChildren {
   SiteProductsRoute: typeof SiteProductsRouteWithChildren
   SiteProfileRoute: typeof SiteProfileRoute
   SiteSettingsRoute: typeof SiteSettingsRoute
+  SiteWishlistRoute: typeof SiteWishlistRoute
   SiteIndexRoute: typeof SiteIndexRoute
   SiteProductIdRoute: typeof SiteProductIdRoute
 }
@@ -562,6 +582,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteProductsRoute: SiteProductsRouteWithChildren,
   SiteProfileRoute: SiteProfileRoute,
   SiteSettingsRoute: SiteSettingsRoute,
+  SiteWishlistRoute: SiteWishlistRoute,
   SiteIndexRoute: SiteIndexRoute,
   SiteProductIdRoute: SiteProductIdRoute,
 }

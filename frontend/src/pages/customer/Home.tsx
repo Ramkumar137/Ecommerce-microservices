@@ -243,6 +243,7 @@ function Home() {
                   <Link
                     key={cat}
                     to="/products"
+                    search={{ category: cat } as any}
                     className="flex shrink-0 flex-col items-center justify-center gap-2 rounded-xl border bg-card px-5 py-4 text-xs font-medium text-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-md"
                   >
                     <span className="text-primary">{getCategoryIcon(cat)}</span>

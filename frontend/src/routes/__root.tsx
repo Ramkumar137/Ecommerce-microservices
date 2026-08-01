@@ -111,16 +111,20 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { WishlistProvider } from "@/context/wishlist-context";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CartProvider>
-          <Outlet />
-          <Toaster />
-        </CartProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <Outlet />
+            <Toaster />
+          </CartProvider>
+        </WishlistProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

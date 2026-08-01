@@ -1,12 +1,13 @@
 import { useParams, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Star, Minus, Plus, ShieldCheck, Truck, RefreshCcw, Check, AlertCircle } from "lucide-react";
+import { Heart, Minus, Plus, ShieldCheck, Truck, RefreshCcw, Check, AlertCircle } from "lucide-react";
 import { productsService } from "@/api/services/products";
 import { inventoryApi } from "@/api/inventory";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCart, formatPrice } from "@/context/cart-context";
 import { useAuth } from "@/context/auth-context";
+import { useWishlist } from "@/context/wishlist-context";
 import { ProductCard } from "@/components/site/ProductCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
@@ -32,6 +33,9 @@ function ProductDetail() {
 
   const { add, openGuestAuthModal } = useCart();
   const { isAuthenticated, isAdmin } = useAuth();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+
+  const isWishlisted = product ? isInWishlist(String(product.product_id || (product as any).id)) : false;
   const [qty, setQty] = useState(1);
   const [active, setActive] = useState(0);
 
@@ -242,17 +246,7 @@ function ProductDetail() {
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{product.name}</h1>
 
-          <div className="mt-3 flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-1">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Star key={i} className="size-4 fill-warning text-warning" />
-              ))}
-            </div>
-            <span className="font-medium">4.8</span>
-            <span className="text-muted-foreground">· Verified customer reviews</span>
-          </div>
-
-          <div className="mt-6 flex items-baseline gap-3">
+          <div className="mt-4 flex items-baseline gap-3">
             <span className="text-3xl font-semibold">{formatPrice(product.price)}</span>
           </div>
 
@@ -315,6 +309,20 @@ function ProductDetail() {
               }}
             >
               {isAdmin ? "Restricted for Admin" : "Add to cart"}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => product && toggleWishlist(product)}
+              className="gap-2 font-medium"
+            >
+              <Heart
+                className={`size-4 ${
+                  isWishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"
+                }`}
+              />
+              {isWishlisted ? "Saved to Wishlist" : "Wishlist"}
             </Button>
           </div>
 

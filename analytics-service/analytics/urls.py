@@ -10,6 +10,7 @@ from .views import (
     RevenueView,
     InventoryAnalyticsView,
     CustomerAnalyticsView,
+    UsersAnalyticsView,
 )
 
 urlpatterns = [
@@ -23,4 +24,5 @@ urlpatterns = [
     path('revenue/', RevenueView.as_view(), name='analytics-revenue'),
     path('inventory/', InventoryAnalyticsView.as_view(), name='analytics-inventory'),
     path('customers/', CustomerAnalyticsView.as_view(), name='analytics-customers'),
+    path('users/', UsersAnalyticsView.as_view(), name='analytics-users'),
 ]

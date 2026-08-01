@@ -3,8 +3,9 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useCart, formatPrice } from "@/context/cart-context";
 import { useAuth } from "@/context/auth-context";
+import { useWishlist } from "@/context/wishlist-context";
 import { toast } from "sonner";
-import { Loader2, ShoppingCart, Tag, Eye } from "lucide-react";
+import { Loader2, ShoppingCart, Tag, Eye, Heart } from "lucide-react";
 import { ProductQuickViewModal } from "@/components/common/ProductQuickViewModal";
 import type { Product } from "@/types/product";
 
@@ -18,10 +19,18 @@ function getDiscountPercent(price: number): number | null {
 export function ProductCard({ product }: { product: Product }) {
   const { add, openGuestAuthModal } = useCart();
   const { isAuthenticated, isAdmin } = useAuth();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const [adding, setAdding] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
 
   const productId = String(product.product_id || (product as any).id || "");
+  const isWishlisted = isInWishlist(productId);
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist(product);
+  };
   const outOfStock = Number(product.stock) === 0;
   const lowStock = Number(product.stock) > 0 && Number(product.stock) < 10;
   const discount = getDiscountPercent(product.price);
@@ -88,9 +97,23 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
 
+          {/* Wishlist Heart Button */}
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            className="absolute right-2 top-2 z-20 grid size-7.5 place-items-center rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur-xs transition-transform hover:scale-110"
+            title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Heart
+              className={`size-4 transition-colors ${
+                isWishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500"
+              }`}
+            />
+          </button>
+
           {/* Low Stock Badge */}
           {lowStock && !outOfStock && (
-            <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+            <span className="absolute left-2 bottom-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
               Only {product.stock} left
             </span>
           )}

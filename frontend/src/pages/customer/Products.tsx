@@ -17,13 +17,43 @@ import { toast } from "sonner";
 const ITEMS_PER_PAGE = 16;
 
 function ProductListing() {
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("All");
+  const [q, setQ] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("q") || "";
+    }
+    return "";
+  });
+
+  const [cat, setCat] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("category") || params.get("cat") || "All";
+    }
+    return "All";
+  });
+
   const [sort, setSort] = useState("featured");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Sync category and search query from URL search params
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const categoryParam = params.get("category") || params.get("cat");
+      const queryParam = params.get("q");
+
+      if (categoryParam) {
+        setCat(categoryParam);
+      }
+      if (queryParam !== null && queryParam !== undefined) {
+        setQ(queryParam);
+      }
+    }
+  }, [typeof window !== "undefined" ? window.location.search : ""]);
 
   // Fetch products once on mount to avoid duplicate API calls
   useEffect(() => {

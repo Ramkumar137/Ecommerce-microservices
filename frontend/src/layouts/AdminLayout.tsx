@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/context/auth-context";
-import { getUserInitials } from "@/utils/user";
+import { NotificationPopover } from "@/components/common/NotificationPopover";
 
 function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { open, setOpen, toggle } = useSidebarState();
@@ -64,13 +64,11 @@ function AdminLayout({ children }: { children?: React.ReactNode }) {
             <Input placeholder="Search…" className="h-9 w-64 bg-muted/50 pl-9 text-sm" />
           </div>
 
-          <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-            <Bell className="size-5" />
-          </Button>
+          <NotificationPopover />
 
-          <Avatar className="size-8 border">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-              {initials}
+          <Avatar className="h-8 px-2.5 w-auto rounded-md border bg-primary/10">
+            <AvatarFallback className="bg-transparent text-primary text-xs font-bold tracking-wider">
+              ADMIN
             </AvatarFallback>
           </Avatar>
         </header>

@@ -164,3 +164,22 @@ class CustomerAnalyticsView(APIView):
             return success_response(data)
         except Exception as e:
             return error_response(e)
+
+
+class UsersAnalyticsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        try:
+            from .direct_aggregator import DirectDynamoDBAggregator
+            raw_users = DirectDynamoDBAggregator.get_users()
+            clean_users = []
+            for u in raw_users:
+                uc = dict(u)
+                uc.pop("password", None)
+                uc.pop("hashed_password", None)
+                clean_users.append(uc)
+            return success_response(clean_users)
+        except Exception as e:
+            return error_response(e)

@@ -78,15 +78,10 @@ export function ProductQuickViewModal({
               </DialogTitle>
             </DialogHeader>
 
-            {/* Price & Rating */}
+            {/* Price */}
             <div className="flex items-baseline justify-between border-y py-3">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-foreground">{formatPrice(product.price)}</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-amber-500 font-medium">
-                <Star className="size-4 fill-amber-500 text-amber-500" />
-                <span>4.8</span>
-                <span className="text-muted-foreground">(24)</span>
               </div>
             </div>
 

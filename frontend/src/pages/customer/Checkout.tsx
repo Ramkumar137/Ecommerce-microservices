@@ -123,16 +123,30 @@ function Checkout() {
   const [processingStep, setProcessingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    email: user?.email || "",
-    firstName: user?.first_name || "",
-    lastName: user?.last_name || "",
-    phone: user?.phone || "",
-    address: "",
-    city: "Chennai",
-    zip: "",
-    state: "TamilNadu",
-    country: "India",
+  const [formData, setFormData] = useState(() => {
+    let savedAddr = { address: "", city: "Chennai", zip: "", state: "TamilNadu", country: "India" };
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("heisenflow_default_address");
+        if (stored) {
+          savedAddr = { ...savedAddr, ...JSON.parse(stored) };
+        }
+      } catch (e) {
+        console.error("Failed to read saved address for checkout", e);
+      }
+    }
+
+    return {
+      email: user?.email || "",
+      firstName: user?.first_name || "",
+      lastName: user?.last_name || "",
+      phone: user?.phone || "",
+      address: savedAddr.address || "",
+      city: savedAddr.city || "Chennai",
+      zip: savedAddr.zip || "",
+      state: savedAddr.state || "TamilNadu",
+      country: savedAddr.country || "India",
+    };
   });
 
   const navigate = useNavigate();
@@ -207,8 +221,18 @@ function Checkout() {
           email: formData.email,
           first_name: formData.firstName,
           last_name: formData.lastName,
+          phone: formData.phone,
+          address_line1: formData.address,
+          city: formData.city,
+          pincode: formData.zip,
+          state: formData.state,
+          country: formData.country,
         },
         shipping: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
           address: formData.address,
           city: formData.city,
           zip: formData.zip,

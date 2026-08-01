@@ -29,11 +29,25 @@ function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string;
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      const googleUser = await loginWithGoogle("customer.google@gmail.com", "Google Customer");
+      toast.success(`Welcome, ${googleUser.first_name}! Registered via Google.`);
+      navigate({ to: "/" });
+    } catch {
+      toast.error("Google registration failed.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState<FormData>({
     first_name: "",

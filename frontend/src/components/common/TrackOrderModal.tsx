@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { OrderStatusBadge } from "@/components/common/StatusBadge";
 import { formatPrice } from "@/context/cart-context";
 import { formatFriendlyDate } from "@/pages/customer/Orders";
-import { CheckCircle2, Clock, Truck, PackageCheck, XCircle, MapPin } from "lucide-react";
+import { CheckCircle2, Clock, Truck, PackageCheck, XCircle, MapPin, Loader2 } from "lucide-react";
 import type { Order } from "@/types/order";
 
 const VERTICAL_TRACKING_STEPS = [
@@ -24,17 +26,36 @@ export function TrackOrderModal({
   order,
   open,
   onOpenChange,
+  onCancelOrder,
 }: {
   order: Order | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCancelOrder?: (orderId: string) => Promise<void>;
 }) {
+  const [cancelling, setCancelling] = useState(false);
+
   if (!order) return null;
 
   const statusUpper = String(order.status || "").toUpperCase().trim();
   const isCancelled = statusUpper === "CANCELLED" || statusUpper === "REJECTED";
+  const isDelivered = statusUpper === "DELIVERED" || statusUpper === "COMPLETED";
+  const canCancel = !isCancelled && !isDelivered && statusUpper !== "SHIPPED";
   const activeStep = getActiveStepIndex(statusUpper);
   const formattedDate = formatFriendlyDate(order.created_at || (order as any).placed_at || (order as any).date);
+
+  const handleCancel = async () => {
+    if (!onCancelOrder) return;
+    try {
+      setCancelling(true);
+      await onCancelOrder(order.order_id);
+      onOpenChange(false);
+    } catch {
+      // Handled in parent
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,6 +142,27 @@ export function TrackOrderModal({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Modal Footer with Cancel Option */}
+        {canCancel && onCancelOrder && (
+          <div className="mt-3 pt-3 border-t flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+            >
+              {cancelling ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="size-3.5 animate-spin" /> Cancelling…
+                </span>
+              ) : (
+                "Cancel Order"
+              )}
+            </Button>
           </div>
         )}
       </DialogContent>
