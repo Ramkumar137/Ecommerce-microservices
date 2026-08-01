@@ -56,6 +56,16 @@ class AuthService:
         return result
 
     @classmethod
+    def get_all_users(cls):
+        """
+        Get all system users (Admin endpoint).
+        """
+        table = cls.get_table()
+        response = table.scan()
+        items = response.get("Items", [])
+        return [cls._serialize_user(u) for u in items]
+
+    @classmethod
     def get_user(cls, user_id):
         """
         Get user by user_id.
