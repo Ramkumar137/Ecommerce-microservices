@@ -234,134 +234,15 @@ class AnalyticsService:
     @classmethod
     def seed_sample_data(cls):
         """
-        Populate sample analytics data into DynamoDB for testing and local demonstration.
-        Overwrites zero-state summaries with realistic values and seeds products + recent orders.
+        [DISABLED in REAL-DATA-ONLY Mode]
+        Sample data seeding has been disabled to strictly enforce real event-driven metrics.
+        Use initialize_dashboard_metrics() to populate clean zero-state records instead.
         """
-        table = cls.get_table()
-        now = cls._timestamp()
-        from datetime import timedelta
-
-        # 1. Update summary records
-        table.put_item(
-            Item={
-                "metric_type": MetricType.DASHBOARD,
-                "metric_id": MetricId.SUMMARY,
-                "total_revenue": Decimal("12450.50"),
-                "total_orders": Decimal("48"),
-                "total_customers": Decimal("32"),
-                "total_products": Decimal("15"),
-                "successful_payments": Decimal("42"),
-                "failed_payments": Decimal("6"),
-                "created_at": now,
-                "updated_at": now,
-            }
+        import logging
+        logging.getLogger(__name__).warning(
+            "seed_sample_data called, but disabled under REAL-DATA-ONLY mode."
         )
-
-        table.put_item(
-            Item={
-                "metric_type": MetricType.ORDER,
-                "metric_id": MetricId.SUMMARY,
-                "total_orders": Decimal("48"),
-                "pending": Decimal("5"),
-                "confirmed": Decimal("10"),
-                "processing": Decimal("8"),
-                "shipped": Decimal("7"),
-                "delivered": Decimal("15"),
-                "cancelled": Decimal("3"),
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-        table.put_item(
-            Item={
-                "metric_type": MetricType.PAYMENT,
-                "metric_id": MetricId.SUMMARY,
-                "total_payments": Decimal("48"),
-                "successful_payments": Decimal("42"),
-                "failed_payments": Decimal("4"),
-                "refunded_payments": Decimal("2"),
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-        table.put_item(
-            Item={
-                "metric_type": MetricType.REVENUE,
-                "metric_id": MetricId.SUMMARY,
-                "total_revenue": Decimal("12450.50"),
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-        table.put_item(
-            Item={
-                "metric_type": MetricType.INVENTORY,
-                "metric_id": MetricId.SUMMARY,
-                "total_stock": Decimal("450"),
-                "available_stock": Decimal("380"),
-                "reserved_stock": Decimal("50"),
-                "low_stock_products": Decimal("4"),
-                "out_of_stock_products": Decimal("2"),
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-        table.put_item(
-            Item={
-                "metric_type": MetricType.CUSTOMER,
-                "metric_id": MetricId.SUMMARY,
-                "total_customers": Decimal("32"),
-                "cart_abandonment_rate": Decimal("24.5"),
-                "active_customers": Decimal("28"),
-                "returning_customers": Decimal("12"),
-                "new_customers": Decimal("20"),
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-        # 2. Seed top products
-        sample_products = [
-            ("prod-101", "Wireless Noise-Canceling Headphones", 142),
-            ("prod-102", "Ergonomic Mechanical Keyboard", 98),
-            ("prod-103", "Ultra-Wide Gaming Monitor 34\"", 75),
-            ("prod-104", "Smart Fitness Watch V2", 64),
-            ("prod-105", "USB-C Multi-Port Hub", 52),
-        ]
-        for pid, pname, sold in sample_products:
-            table.put_item(
-                Item={
-                    "metric_type": MetricType.PRODUCT,
-                    "metric_id": pid,
-                    "product_name": pname,
-                    "total_sold": Decimal(str(sold)),
-                    "created_at": now,
-                    "updated_at": now,
-                }
-            )
-
-        # 3. Seed recent orders across past 7 days
-        statuses = ["DELIVERED", "CONFIRMED", "SHIPPED", "PROCESSING", "PENDING"]
-        today_dt = datetime.now(timezone.utc)
-        for i in range(14):
-            day_offset = i % 7
-            order_dt = (today_dt - timedelta(days=day_offset)).isoformat()
-            table.put_item(
-                Item={
-                    "metric_type": MetricType.RECENT_ORDER,
-                    "metric_id": f"ord-100{i+1}",
-                    "user_id": f"user-20{i%5 + 1}",
-                    "total_amount": Decimal(str(150 + i * 35)),
-                    "status": statuses[i % len(statuses)],
-                    "updated_at": order_dt,
-                }
-            )
-
-        return True
+        return False
 
     # -------------------------------------------------------------------------
     # Update Methods (called by event handlers)
@@ -589,14 +470,6 @@ class AnalyticsService:
 
         if total_prod == 0 and sanitized_top_products:
             total_prod = len(sanitized_top_products)
-
-        if total_ord == 0 and total_rev == 0.0 and not sanitized_recent_orders and not sanitized_top_products:
-            # Auto-seed sample metrics for local dev/testing if DB is completely unpopulated
-            try:
-                cls.seed_sample_data()
-                return cls.get_dashboard_metrics()
-            except Exception:
-                pass
 
         data = {
             "total_revenue": round(total_rev, 2),

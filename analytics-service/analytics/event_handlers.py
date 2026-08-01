@@ -21,7 +21,7 @@ def handle_product_created(data):
     )
 
     logger.info(
-        f"[PRODUCT_CREATED] product_id={product_id}"
+        f"REAL_DATA_PIPELINE [PRODUCT_CREATED] product_id={product_id} name={product_name}"
     )
 
 
@@ -40,7 +40,7 @@ def handle_product_updated(data):
     )
 
     logger.info(
-        f"[PRODUCT_UPDATED] product_id={product_id}"
+        f"REAL_DATA_PIPELINE [PRODUCT_UPDATED] product_id={product_id} name={product_name}"
     )
 
 
@@ -68,8 +68,8 @@ def handle_order_created(data):
     AnalyticsService.update_customer_metrics(user_id=user_id)
 
     logger.info(
-        f"[ORDER_CREATED] order_id={order_id} user_id={user_id} "
-        f"total_amount={total_amount}"
+        f"REAL_DATA_PIPELINE [ORDER_CREATED] order_id={order_id} user_id={user_id} "
+        f"total_amount={total_amount} items_count={len(items)}"
     )
 
 
@@ -94,7 +94,7 @@ def handle_order_status_updated(data):
     )
 
     logger.info(
-        f"[ORDER_STATUS_UPDATED] order_id={order_id} status={status}"
+        f"REAL_DATA_PIPELINE [ORDER_STATUS_UPDATED] order_id={order_id} status={status}"
     )
 
 
@@ -113,7 +113,7 @@ def handle_payment_success(data):
     )
 
     logger.info(
-        f"[PAYMENT_SUCCESS] payment_id={payment_id} "
+        f"REAL_DATA_PIPELINE [PAYMENT_SUCCESS] payment_id={payment_id} "
         f"order_id={order_id} amount={amount}"
     )
 
@@ -132,5 +132,5 @@ def handle_payment_failed(data):
     )
 
     logger.info(
-        f"[PAYMENT_FAILED] payment_id={payment_id} order_id={order_id}"
+        f"REAL_DATA_PIPELINE [PAYMENT_FAILED] payment_id={payment_id} order_id={order_id}"
     )

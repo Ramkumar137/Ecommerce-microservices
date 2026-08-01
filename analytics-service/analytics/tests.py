@@ -44,6 +44,10 @@ class AnalyticsResponseStandardizationTestCase(TestCase):
         self.assertEqual(set(data.keys()), expected_keys)
         self.assertIsInstance(data["topSellingProducts"], list)
         self.assertIsInstance(data["recentOrders"], list)
+        self.assertEqual(len(data["topSellingProducts"]), 0)
+        self.assertEqual(len(data["recentOrders"]), 0)
+        self.assertEqual(data["totalRevenue"], 0.0)
+        self.assertEqual(data["totalOrders"], 0)
         for key, val in data.items():
             self.assertIsNotNone(val, f"Key {key} should not be null")
 
