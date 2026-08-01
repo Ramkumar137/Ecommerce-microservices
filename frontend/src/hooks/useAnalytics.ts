@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { analyticsApi } from "@/services/analyticsApi";
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 5_000;
 
 // keepPreviousData ensures charts never blank out during background refetches —
 // the stale data stays visible and updates smoothly when fresh data arrives.

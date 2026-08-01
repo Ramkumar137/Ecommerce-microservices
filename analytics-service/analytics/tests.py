@@ -289,8 +289,8 @@ class DirectAggregatorTestCase(TestCase):
             }
         ]
         mock_get_pay.return_value = [
-            {"payment_id": "pay-1", "amount": Decimal("150.75"), "status": "SUCCESS"},
-            {"payment_id": "pay-2", "amount": Decimal("50.00"), "status": "FAILED"},
+            {"payment_id": "pay-1", "order_id": "ord-101", "amount": Decimal("150.75"), "status": "SUCCESS"},
+            {"payment_id": "pay-2", "order_id": "ord-102", "amount": Decimal("50.00"), "status": "FAILED"},
         ]
         mock_get_prods.return_value = [
             {"product_id": "p-1", "name": "T-Shirt", "is_active": True},

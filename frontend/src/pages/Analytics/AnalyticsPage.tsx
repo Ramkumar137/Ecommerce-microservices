@@ -80,7 +80,7 @@ export default function AnalyticsPage() {
     <>
       <PageHeader
         title="Analytics Dashboard"
-        description="Real-time business metrics and performance analytics — auto-refreshes every 30 seconds."
+        description="Real-time business metrics and performance analytics — auto-refreshes every 5 seconds."
         actions={
           <div className="flex items-center gap-2">
             <Button

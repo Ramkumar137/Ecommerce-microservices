@@ -30,6 +30,10 @@ function AdminDashboard() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [isAuthenticated, isAdmin]);
 
   async function loadData() {
