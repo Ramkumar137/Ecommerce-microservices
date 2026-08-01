@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { paymentsApi } from "@/api/payments";
+import { ordersApi } from "@/api/orders";
 import { PaymentStatusBadge } from "@/components/common/StatusBadge";
 import { formatPrice } from "@/context/cart-context";
 import { StatCard } from "@/components/common/StatCard";
@@ -29,6 +30,7 @@ const PAGE_SIZE = 10;
 
 function AdminPayments() {
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
+  const [ordersList, setOrdersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -60,8 +62,16 @@ function AdminPayments() {
     try {
       setLoading(true);
       setErrorMsg(null);
-      const data = await paymentsApi.listAdmin();
-      setPaymentsList(Array.isArray(data) ? data : []);
+      const [payRes, ordRes] = await Promise.allSettled([
+        paymentsApi.listAdmin(),
+        ordersApi.listAdmin(),
+      ]);
+
+      const payData = payRes.status === "fulfilled" && Array.isArray(payRes.value) ? payRes.value : [];
+      const ordData = ordRes.status === "fulfilled" && Array.isArray(ordRes.value) ? ordRes.value : [];
+
+      setPaymentsList(payData);
+      setOrdersList(ordData);
       setCurrentPage(1);
     } catch (err: any) {
       const status = err?.response?.status;
@@ -136,15 +146,30 @@ function AdminPayments() {
     return filteredPayments.slice(start, start + PAGE_SIZE);
   }, [filteredPayments, currentPage]);
 
-  // Summary Metrics
   const collected = useMemo(() => {
-    return paymentsList
-      .filter((p) => {
-        const s = String(p.status || "").toUpperCase();
-        return s === "SUCCESS" || s === "COMPLETED" || s === "PAID" || s === "DELIVERED";
-      })
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  }, [paymentsList]);
+    const successfulPaymentOrderIds = new Set<string>();
+    let paymentRev = 0;
+
+    for (const p of paymentsList) {
+      const st = String(p.status || "").toUpperCase();
+      if (st !== "FAILED" && st !== "CANCELLED" && st !== "DECLINED" && st !== "REJECTED") {
+        paymentRev += Number(p.amount || (p as any).total_amount || (p as any).total || 0);
+        if (p.order_id) {
+          successfulPaymentOrderIds.add(String(p.order_id));
+        }
+      }
+    }
+
+    let additionalOrderRev = 0;
+    for (const o of ordersList) {
+      const st = String(o.status || "").toUpperCase();
+      if (st !== "CANCELLED" && st !== "FAILED" && st !== "REJECTED" && !successfulPaymentOrderIds.has(String(o.order_id))) {
+        additionalOrderRev += Number(o.total_amount || (o as any).amount || 0);
+      }
+    }
+
+    return paymentRev + additionalOrderRev;
+  }, [paymentsList, ordersList]);
 
   const pendingCount = useMemo(() => {
     return paymentsList.filter((p) => {
