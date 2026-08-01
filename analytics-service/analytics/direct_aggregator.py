@@ -16,7 +16,6 @@ def _timestamp():
 def _serialize_value(val):
     """Recursively convert Decimal to float/int for JSON safety."""
     if isinstance(val, Decimal):
-        # Convert whole numbers to int, otherwise float
         return int(val) if val % 1 == 0 else float(val)
     if isinstance(val, list):
         return [_serialize_value(item) for item in val]
@@ -43,6 +42,40 @@ def _to_int(val, default=0):
         return default
 
 
+def _extract_amount(item):
+    """Extract numeric monetary amount from payment or order dictionary."""
+    if not isinstance(item, dict):
+        return 0.0
+
+    # Priority key search
+    for key in ("amount", "total_amount", "total", "payment_amount", "price", "value"):
+        if key in item and item[key] is not None:
+            return _to_float(item[key])
+
+    # Case-insensitive key search fallback
+    for k, v in item.items():
+        if k.lower() in ("amount", "total_amount", "total", "payment_amount", "price", "value") and v is not None:
+            return _to_float(v)
+
+    return 0.0
+
+
+def _is_successful_payment(status):
+    """Check if payment status is successful (case-insensitive)."""
+    if not status:
+        return False
+    st = str(status).strip().upper()
+    return st in ("SUCCESS", "COMPLETED", "PAID", "APPROVED")
+
+
+def _is_failed_payment(status):
+    """Check if payment status is failed (case-insensitive)."""
+    if not status:
+        return False
+    st = str(status).strip().upper()
+    return st in ("FAILED", "FAILURE", "DECLINED", "REJECTED")
+
+
 class DirectDynamoDBAggregator:
     """
     Directly scans microservice DynamoDB tables to perform live real-time
@@ -51,7 +84,10 @@ class DirectDynamoDBAggregator:
 
     @staticmethod
     def _scan_all_items(table_name):
-        """Perform paginated scan to retrieve all items from a DynamoDB table."""
+        """
+        Perform paginated scan to retrieve all items from a DynamoDB table.
+        Loops using LastEvaluatedKey to guarantee complete data extraction.
+        """
         try:
             table = get_table(table_name)
             items = []
@@ -62,14 +98,20 @@ class DirectDynamoDBAggregator:
                 if last_key:
                     kwargs["ExclusiveStartKey"] = last_key
                 response = table.scan(**kwargs)
-                items.extend(response.get("Items", []))
+                fetched = response.get("Items", [])
+                items.extend(fetched)
                 last_key = response.get("LastEvaluatedKey")
                 if not last_key:
                     break
 
+            logger.info(f"[DynamoDB Scan] Table '{table_name}' fetched {len(items)} items total.")
             return [_serialize_value(item) for item in items]
         except Exception as e:
-            logger.warning(f"Error scanning DynamoDB table '{table_name}': {e}")
+            logger.error(
+                f"[DynamoDB Scan ERROR] Failed to scan table '{table_name}': {e}. "
+                "Verify AWS credentials and table permissions.",
+                exc_info=True,
+            )
             return []
 
     # -------------------------------------------------------------------------
@@ -112,42 +154,56 @@ class DirectDynamoDBAggregator:
         products = cls.get_products()
         users = cls.get_users()
 
-        # 1. Total Revenue (from payments where status == 'SUCCESS')
+        logger.info(
+            f"[Analytics Summary] Fetched counts -> Payments: {len(payments)}, "
+            f"Orders: {len(orders)}, Products: {len(products)}, Users: {len(users)}."
+        )
+
+        if payments:
+            logger.info(f"[Analytics Debug] Sample Payment Record: {payments[0]}")
+        if orders:
+            logger.info(f"[Analytics Debug] Sample Order Record: {orders[0]}")
+
+        # 1. Revenue & Payment Counts
         successful_payments = [
             p for p in payments
-            if str(p.get("status", "")).upper() == "SUCCESS"
+            if _is_successful_payment(p.get("status"))
         ]
         failed_payments = [
             p for p in payments
-            if str(p.get("status", "")).upper() == "FAILED"
+            if _is_failed_payment(p.get("status"))
         ]
 
-        total_revenue = sum(_to_float(p.get("amount")) for p in successful_payments)
+        total_revenue = sum(_extract_amount(p) for p in successful_payments)
+        logger.info(
+            f"[Analytics] Computed total revenue from {len(successful_payments)} successful payment(s): {total_revenue}"
+        )
 
-        # Fallback revenue from non-cancelled orders if payments table is empty
+        # Fallback revenue from non-cancelled orders if payments table has 0 successful payments
         if total_revenue == 0.0 and orders:
             valid_orders = [
                 o for o in orders
-                if str(o.get("status", "")).upper() != "CANCELLED"
+                if str(o.get("status", "")).strip().upper() not in ("CANCELLED", "FAILED")
             ]
-            total_revenue = sum(_to_float(o.get("total_amount")) for o in valid_orders)
+            total_revenue = sum(_extract_amount(o) for o in valid_orders)
+            logger.info(
+                f"[Analytics Fallback] Computed total revenue from {len(valid_orders)} non-cancelled order(s): {total_revenue}"
+            )
 
-        # 2. Total Orders & Customers
+        # 2. Total Orders & Customer Count
         total_orders = len(orders)
-        
-        # User counts
         order_user_ids = {str(o.get("user_id")) for o in orders if o.get("user_id")}
         user_ids = {str(u.get("user_id")) for u in users if u.get("user_id")}
         total_customers = len(user_ids | order_user_ids)
 
-        # 3. Products
+        # 3. Product Metrics
         total_products = len(products)
         active_products = sum(
             1 for p in products
             if p.get("is_active") is True or str(p.get("is_active", "")).lower() in ("true", "1")
         )
 
-        # 4. Top Selling Products (aggregated from order items)
+        # 4. Top Selling Products
         product_sales = {}
         for order in orders:
             items = order.get("items", [])
@@ -163,21 +219,21 @@ class DirectDynamoDBAggregator:
                                 "metric_id": pid,
                                 "product_name": pname,
                                 "total_sold": 0,
-                                "updated_at": _timestamp()
+                                "updated_at": _timestamp(),
                             }
                         product_sales[pid]["total_sold"] += qty
 
         top_selling_products = sorted(
             list(product_sales.values()),
             key=lambda x: x["total_sold"],
-            reverse=True
+            reverse=True,
         )[:10]
 
         # 5. Recent Orders
         sorted_orders = sorted(
             orders,
             key=lambda o: str(o.get("created_at") or o.get("updated_at") or ""),
-            reverse=True
+            reverse=True,
         )[:10]
 
         recent_orders = [
@@ -185,7 +241,7 @@ class DirectDynamoDBAggregator:
                 "metric_type": "RECENT_ORDER",
                 "metric_id": str(o.get("order_id") or ""),
                 "user_id": str(o.get("user_id") or ""),
-                "total_amount": round(_to_float(o.get("total_amount")), 2),
+                "total_amount": round(_extract_amount(o), 2),
                 "status": str(o.get("status") or ""),
                 "updated_at": str(o.get("updated_at") or o.get("created_at") or _timestamp()),
             }
@@ -223,7 +279,6 @@ class DirectDynamoDBAggregator:
 
         # Time-series trends
         by_date = {}
-        # Aggregate from payments or orders by date
         records = payments if payments else orders
         for r in records:
             dt_str = str(r.get("created_at") or r.get("updated_at") or "")
@@ -285,9 +340,9 @@ class DirectDynamoDBAggregator:
 
         for p in payments:
             st = str(p.get("status", "")).upper()
-            if st == "SUCCESS":
+            if _is_successful_payment(st):
                 successful += 1
-            elif st == "FAILED":
+            elif _is_failed_payment(st):
                 failed += 1
             elif st == "REFUNDED":
                 refunded += 1
@@ -399,14 +454,14 @@ class DirectDynamoDBAggregator:
         by_date = {}
         successful_payments = [
             p for p in payments
-            if str(p.get("status", "")).upper() == "SUCCESS"
+            if _is_successful_payment(p.get("status"))
         ]
 
         source = successful_payments if successful_payments else orders
 
         for item in source:
             dt_str = str(item.get("created_at") or item.get("updated_at") or "")
-            amt = _to_float(item.get("amount") or item.get("total_amount"))
+            amt = _extract_amount(item)
             if len(dt_str) >= 10:
                 date_key = dt_str[:10]
                 by_date[date_key] = by_date.get(date_key, 0.0) + amt
