@@ -42,7 +42,10 @@ export function PaymentChart() {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => [value.toLocaleString(), "Payments"]}
+              formatter={(value: number, name: string, item: any) => [
+                value.toLocaleString(),
+                item?.payload?.name || name || "Payments",
+              ]}
               contentStyle={{ fontSize: 12 }}
             />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />

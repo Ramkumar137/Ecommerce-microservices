@@ -53,7 +53,10 @@ export function OrderStatusChart() {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => [value.toLocaleString(), "Orders"]}
+              formatter={(value: number, name: string, item: any) => [
+                value.toLocaleString(),
+                item?.payload?.name || name || "Orders",
+              ]}
               contentStyle={{ fontSize: 12 }}
             />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />

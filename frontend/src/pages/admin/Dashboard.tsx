@@ -109,8 +109,9 @@ function AdminDashboard() {
     .reduce((sum, p) => sum + Number(p.amount || (p as any).total_amount || (p as any).total || 0), 0);
 
   if (totalRevenue === 0 && orderList.length > 0) {
+    const paidStatuses = new Set(["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID"]);
     totalRevenue = orderList
-      .filter((o) => String(o.status || "").toUpperCase() !== "CANCELLED")
+      .filter((o) => paidStatuses.has(String(o.status || "").toUpperCase()))
       .reduce((sum, o) => sum + Number(o.total_amount || (o as any).amount || 0), 0);
   }
 

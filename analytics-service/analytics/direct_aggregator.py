@@ -179,15 +179,16 @@ class DirectDynamoDBAggregator:
             f"[Analytics] Computed total revenue from {len(successful_payments)} successful payment(s): {total_revenue}"
         )
 
-        # Fallback revenue from non-cancelled orders if payments table has 0 successful payments
+        # Fallback revenue from paid/confirmed/completed orders if payments table has 0 successful payments
         if total_revenue == 0.0 and orders:
+            paid_statuses = ("CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID")
             valid_orders = [
                 o for o in orders
-                if str(o.get("status", "")).strip().upper() not in ("CANCELLED", "FAILED")
+                if str(o.get("status", "")).strip().upper() in paid_statuses
             ]
             total_revenue = sum(_extract_amount(o) for o in valid_orders)
             logger.info(
-                f"[Analytics Fallback] Computed total revenue from {len(valid_orders)} non-cancelled order(s): {total_revenue}"
+                f"[Analytics Fallback] Computed total revenue from {len(valid_orders)} paid/confirmed order(s): {total_revenue}"
             )
 
         # 2. Total Orders & Customer Count
