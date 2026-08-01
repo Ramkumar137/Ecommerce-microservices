@@ -10,7 +10,7 @@ const baseOptions = {
   refetchIntervalInBackground: true,
   refetchOnWindowFocus: true,
   retry: 1,
-  staleTime: 20_000,
+  staleTime: 0,
   placeholderData: keepPreviousData,
 };
 

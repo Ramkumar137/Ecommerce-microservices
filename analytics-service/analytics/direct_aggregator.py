@@ -164,32 +164,37 @@ class DirectDynamoDBAggregator:
         if orders:
             logger.info(f"[Analytics Debug] Sample Order Record: {orders[0]}")
 
-        # 1. Revenue & Payment Counts
-        successful_payments = [
-            p for p in payments
-            if _is_successful_payment(p.get("status"))
-        ]
-        failed_payments = [
-            p for p in payments
-            if _is_failed_payment(p.get("status"))
-        ]
+        # 1. Revenue & Payment Counts (Combining Successful Payments + Paid/Confirmed Orders)
+        successful_payment_order_ids = set()
+        successful_payments = []
+        failed_payments = []
 
-        total_revenue = sum(_extract_amount(p) for p in successful_payments)
+        for p in payments:
+            st = str(p.get("status", "")).strip().upper()
+            if _is_successful_payment(st):
+                successful_payments.append(p)
+                oid = str(p.get("order_id") or "")
+                if oid:
+                    successful_payment_order_ids.add(oid)
+            elif _is_failed_payment(st):
+                failed_payments.append(p)
+
+        revenue_from_payments = sum(_extract_amount(p) for p in successful_payments)
+
+        # Include orders with confirmed/paid/delivered/processing status that are not already counted in successful_payments
+        paid_order_statuses = ("CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID", "SUCCESS")
+        additional_order_revenue = 0.0
+        for o in orders:
+            oid = str(o.get("order_id") or "")
+            st = str(o.get("status", "")).strip().upper()
+            if st in paid_order_statuses and oid not in successful_payment_order_ids:
+                additional_order_revenue += _extract_amount(o)
+
+        total_revenue = revenue_from_payments + additional_order_revenue
         logger.info(
-            f"[Analytics] Computed total revenue from {len(successful_payments)} successful payment(s): {total_revenue}"
+            f"[Analytics Revenue] Payments revenue: {revenue_from_payments} ({len(successful_payments)} payments), "
+            f"Additional orders revenue: {additional_order_revenue}. Total revenue: {total_revenue}"
         )
-
-        # Fallback revenue from paid/confirmed/completed orders if payments table has 0 successful payments
-        if total_revenue == 0.0 and orders:
-            paid_statuses = ("CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID")
-            valid_orders = [
-                o for o in orders
-                if str(o.get("status", "")).strip().upper() in paid_statuses
-            ]
-            total_revenue = sum(_extract_amount(o) for o in valid_orders)
-            logger.info(
-                f"[Analytics Fallback] Computed total revenue from {len(valid_orders)} paid/confirmed order(s): {total_revenue}"
-            )
 
         # 2. Total Orders & Customer Count
         total_orders = len(orders)

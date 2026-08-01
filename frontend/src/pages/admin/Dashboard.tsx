@@ -101,19 +101,30 @@ function AdminDashboard() {
     }
   }
 
-  let totalRevenue = paymentList
-    .filter((p) => {
-      const st = String(p.status || "").toUpperCase();
-      return st === "SUCCESS" || st === "COMPLETED" || st === "CONFIRMED" || st === "PAID";
-    })
-    .reduce((sum, p) => sum + Number(p.amount || (p as any).total_amount || (p as any).total || 0), 0);
+  const successfulPaymentOrderIds = new Set<string>();
+  let paymentRevenue = 0;
 
-  if (totalRevenue === 0 && orderList.length > 0) {
-    const paidStatuses = new Set(["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID"]);
-    totalRevenue = orderList
-      .filter((o) => paidStatuses.has(String(o.status || "").toUpperCase()))
-      .reduce((sum, o) => sum + Number(o.total_amount || (o as any).amount || 0), 0);
+  for (const p of paymentList) {
+    const st = String(p.status || "").toUpperCase();
+    if (st === "SUCCESS" || st === "COMPLETED" || st === "CONFIRMED" || st === "PAID") {
+      paymentRevenue += Number(p.amount || (p as any).total_amount || (p as any).total || 0);
+      if (p.order_id) {
+        successfulPaymentOrderIds.add(String(p.order_id));
+      }
+    }
   }
+
+  const paidStatuses = new Set(["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "PAID", "SUCCESS"]);
+  let additionalOrderRevenue = 0;
+
+  for (const o of orderList) {
+    const st = String(o.status || "").toUpperCase();
+    if (paidStatuses.has(st) && !successfulPaymentOrderIds.has(String(o.order_id))) {
+      additionalOrderRevenue += Number(o.total_amount || (o as any).amount || 0);
+    }
+  }
+
+  const totalRevenue = paymentRevenue + additionalOrderRevenue;
 
   const activeProductsCount = productList.filter(
     (p) => p.is_active === true || String((p as any).is_active).toLowerCase() === "true" || p.is_active === undefined
