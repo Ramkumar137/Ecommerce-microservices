@@ -423,11 +423,19 @@ class AnalyticsService:
     @classmethod
     def get_dashboard_metrics(cls):
         """
-        Returns the DASHBOARD summary record enriched with
-        top selling products and recent orders.
-        Guarantees exact required response shape and non-null values.
-        Derives summary totals from recent orders/products if summary counter is 0.
+        Returns dashboard metrics directly aggregated from microservice DynamoDB tables,
+        or falls back to stored metric summary if in EVENT mode.
         """
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_dashboard_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
+        # Fallback to stored table summary logic
         try:
             table = cls.get_table()
             response = table.get_item(
@@ -458,7 +466,6 @@ class AnalyticsService:
         total_cust = cls._sanitize_number(raw.get("total_customers"))
         total_prod = cls._sanitize_number(raw.get("total_products"))
 
-        # Fallback derivations if summary counters are unpopulated/0 but detail records exist
         if total_ord == 0 and sanitized_recent_orders:
             total_ord = len(sanitized_recent_orders)
 
@@ -482,15 +489,22 @@ class AnalyticsService:
             "recent_orders": sanitized_recent_orders,
             "updated_at": cls._sanitize_timestamp(raw.get("updated_at")),
         }
-        print("Analytics Raw Service Data:", data)
         return data
 
     @classmethod
     def get_admin_analytics(cls):
         """
-        Returns clean, structured analytics data for /api/admin/analytics
-        with guaranteed non-null fields.
+        Returns clean, structured analytics data for /api/admin/analytics.
         """
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_admin_analytics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         dashboard = cls.get_dashboard_metrics()
 
         top_products = [
@@ -535,8 +549,17 @@ class AnalyticsService:
     @classmethod
     def get_sales_metrics(cls):
         """
-        Returns combined revenue and payment summary with guaranteed non-null fields.
+        Returns combined revenue and payment summary.
         """
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_sales_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         payment = cls.get_payment_metrics()
 
         total_rev = 0.0
@@ -570,7 +593,16 @@ class AnalyticsService:
 
     @classmethod
     def get_order_metrics(cls):
-        """Returns the ORDER summary record with guaranteed non-null fields."""
+        """Returns the ORDER summary record."""
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_order_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             table = cls.get_table()
             response = table.get_item(
@@ -626,7 +658,16 @@ class AnalyticsService:
 
     @classmethod
     def get_payment_metrics(cls):
-        """Returns the PAYMENT summary record with guaranteed non-null fields."""
+        """Returns the PAYMENT summary record."""
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_payment_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             table = cls.get_table()
             response = table.get_item(
@@ -650,8 +691,17 @@ class AnalyticsService:
     @classmethod
     def get_product_metrics(cls):
         """
-        Returns all product rows sorted by total_sold descending with guaranteed non-null fields.
+        Returns product rows.
         """
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_product_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             products = cls._get_top_products(limit=None)
         except Exception:
@@ -661,7 +711,16 @@ class AnalyticsService:
 
     @classmethod
     def get_inventory_metrics(cls):
-        """Returns the INVENTORY summary record with guaranteed non-null fields."""
+        """Returns the INVENTORY summary record."""
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_inventory_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             table = cls.get_table()
             response = table.get_item(
@@ -685,7 +744,16 @@ class AnalyticsService:
 
     @classmethod
     def get_customer_metrics(cls):
-        """Returns the CUSTOMER summary record with guaranteed non-null fields."""
+        """Returns the CUSTOMER summary record."""
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_customer_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             table = cls.get_table()
             response = table.get_item(
@@ -709,10 +777,17 @@ class AnalyticsService:
     @classmethod
     def get_revenue_metrics(cls):
         """
-        Returns clean time-series revenue data as a list of points:
-        [{"date": "YYYY-MM-DD", "revenue": float}, ...]
-        If historical revenue is unavailable, derives daily revenue from recent_orders.
+        Returns clean time-series revenue data as a list of points.
         """
+        mode = os.getenv("ANALYTICS_MODE", "DIRECT").upper()
+        if mode == "DIRECT":
+            try:
+                from .direct_aggregator import DirectDynamoDBAggregator
+                return DirectDynamoDBAggregator.compute_revenue_metrics()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Direct aggregator failed: {e}")
+
         try:
             recent_orders = cls._get_recent_orders()
         except Exception:
@@ -736,7 +811,6 @@ class AnalyticsService:
                 for d in sorted_dates
             ]
 
-        # Fallback if no recent_orders exist: check summary record total_revenue
         total_rev = 0.0
         try:
             table = cls.get_table()
