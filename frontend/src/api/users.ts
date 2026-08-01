@@ -1,21 +1,68 @@
 import apiClient from "./client";
 import { ENV } from "@/config/env";
 import type { User } from "@/types/auth";
+import { storage } from "@/utils/storage";
 
 const AUTH_URL = ENV.AUTH_API_URL.replace(/\/$/, "");
+const ORDER_URL = ENV.ORDER_API_URL.replace(/\/$/, "");
 
 export const usersApi = {
-  listAdmin(): Promise<User[]> {
-    return apiClient
-      .get(`${AUTH_URL}/users/`)
-      .catch(() => apiClient.get("http://localhost:8000/api/v1/auth/users/"))
-      .catch(() => apiClient.get("http://localhost:8000/users/"))
-      .catch(() => apiClient.get(`${AUTH_URL.replace(/\/auth\/?$/, "")}/users/`))
-      .then((r) => (Array.isArray(r.data) ? r.data : r.data?.results || r.data?.users || []))
-      .catch((err) => {
-        console.warn("[Users API listAdmin Error]", err?.response?.status, err?.message);
-        return [];
-      });
+  async listAdmin(): Promise<User[]> {
+    try {
+      // 1. Primary: Auth Service /users/ endpoint
+      const res = await apiClient
+        .get(`${AUTH_URL}/users/`)
+        .catch(() => apiClient.get("http://localhost:8000/api/v1/auth/users/"))
+        .catch(() => apiClient.get("http://localhost:8000/users/"))
+        .catch(() => apiClient.get(`${AUTH_URL.replace(/\/auth\/?$/, "")}/users/`));
+
+      const raw = Array.isArray(res?.data)
+        ? res.data
+        : res?.data?.results || res?.data?.users || [];
+
+      if (raw.length > 0) {
+        return raw;
+      }
+    } catch (e) {
+      console.warn("[usersApi listAdmin primary failed, trying order/session fallback]", e);
+    }
+
+    // 2. Fallback: Extract users from Orders API & local session
+    const userMap = new Map<string, User>();
+
+    // Current logged-in user
+    const sessionUser = storage.getUser();
+    if (sessionUser && sessionUser.user_id) {
+      userMap.set(String(sessionUser.user_id), sessionUser);
+    }
+
+    try {
+      const ordRes = await apiClient.get(`${ORDER_URL}/`);
+      const orders = Array.isArray(ordRes.data)
+        ? ordRes.data
+        : ordRes.data?.results || ordRes.data?.orders || [];
+
+      for (const o of orders) {
+        const uid = String(o.user_id || o.userId || "");
+        if (!uid || userMap.has(uid)) continue;
+
+        const contact = o.contact || {};
+        userMap.set(uid, {
+          user_id: uid,
+          first_name: contact.first_name || contact.firstName || "Customer",
+          last_name: contact.last_name || contact.lastName || "",
+          email: contact.email || `${uid.toLowerCase()}@example.com`,
+          username: uid,
+          role: "CUSTOMER",
+          is_active: true,
+          created_at: o.created_at || o.createdAt,
+        } as User);
+      }
+    } catch (e) {
+      console.warn("[usersApi listAdmin order fallback failed]", e);
+    }
+
+    return Array.from(userMap.values());
   },
 
   getAdmin(userId: string): Promise<User> {
