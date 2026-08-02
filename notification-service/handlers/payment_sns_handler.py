@@ -18,14 +18,14 @@ def handle_payment_event(event):
 
             event_type = message.get("event")
 
-            data = message["data"]
+            data = message.get("data", {})
 
             if event_type == "PAYMENT_SUCCESS":
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data["user_id"],
-                        "type": "PAYMENT",
+                        "user_id": data.get("order_id"),
+                        "type": "PAYMENT_SUCCESS",
                         "title": "Payment Successful",
                         "message": (
                             f"Payment received for "
@@ -40,7 +40,7 @@ def handle_payment_event(event):
                 NotificationService.create_notification(
                     {
                         "user_id": data["user_id"],
-                        "type": "PAYMENT",
+                        "type": "PAYMENT_FAILED",
                         "title": "Payment Failed",
                         "message": (
                             f"Payment failed for "

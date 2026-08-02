@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from notification.dynamo_service import DynamoService
-from notification.email_service import EmailService
+from notification.email.email_service import EmailService
 from notification.message_builder import MessageBuilder
 
 
@@ -23,12 +23,10 @@ class NotificationService:
         content = MessageBuilder.build(payload)
 
         if "EMAIL" in channels:
-            email_service = EmailService()
-            email_service.send_email(
-                payload.get("email") or payload.get("emailAddress") or "",
-                content["subject"],
-                content["message"],
-                content["body"],
+            EmailService.send_notification_email(
+                to_email=payload.get("email") or payload.get("emailAddress") or "",
+                subject=content["subject"],
+                message=content["message"],
             )
 
         if "IN_APP" in channels:

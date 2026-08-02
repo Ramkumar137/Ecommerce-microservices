@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -116,7 +113,7 @@ class NotificationDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if notification["user_id"] != request.user["user_id"]:
+        if notification["userId"] != request.user["user_id"]:
 
             return Response(
                 {"error": "Permission denied"},
@@ -147,7 +144,7 @@ class NotificationReadView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if notification["user_id"] != request.user["user_id"]:
+        if notification["userId"] != request.user["user_id"]:
 
             return Response(
                 {"error": "Permission denied"},

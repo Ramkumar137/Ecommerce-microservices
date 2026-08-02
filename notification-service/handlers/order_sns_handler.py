@@ -17,14 +17,14 @@ def handle_order_created(event):
             )
 
             event_type = message.get("event")
-            data = message.get("data")
+            data = message.get("data", {})
 
             if event_type == "ORDER_CREATED":
 
                 NotificationService.create_notification(
                     {
                         "user_id": data["user_id"],
-                        "type": "ORDER",
+                        "type": "ORDER_CREATED",
                         "title": "Order Placed",
                         "message": (
                             f"Your order {data['order_id']} "
@@ -39,8 +39,8 @@ def handle_order_created(event):
                 NotificationService.create_notification(
                     {
                         "user_id": data["user_id"],
-                        "type": "ORDER",
-                        "title": "Payment Successful",
+                        "type": "ORDER_CONFIRMED",
+                        "title": "Order Confirmed",
                         "message": (
                             f"Your order {data['order_id']} "
                             f"has been confirmed."
@@ -54,8 +54,8 @@ def handle_order_created(event):
                 NotificationService.create_notification(
                     {
                         "user_id": data["user_id"],
-                        "type": "ORDER",
-                        "title": "Payment Failed",
+                        "type": "ORDER_CANCELLED",
+                        "title": "Order Cancelled",
                         "message": (
                             f"Your order {data['order_id']} "
                             f"has been cancelled because the payment failed."

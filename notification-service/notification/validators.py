@@ -1,24 +1,41 @@
 from rest_framework import serializers
 
 
-VALID_NOTIFICATION_TYPES = [
-    "WELCOME",
+VALID_NOTIFICATION_TYPES = (
+    # Order events
     "ORDER_CREATED",
     "ORDER_CONFIRMED",
     "ORDER_CANCELLED",
     "ORDER_SHIPPED",
     "ORDER_DELIVERED",
+    # Payment events
     "PAYMENT_SUCCESS",
     "PAYMENT_FAILED",
     "PAYMENT_REFUNDED",
+    # Account events
+    "WELCOME",
+    "FORGOT_PASSWORD",
+    "PROFILE_UPDATED",
+    # Cart events
+    "CART_UPDATED",
+    # Admin events
+    "SUPPORT_REQUEST",
+    "INVENTORY_LOW",
     "LOW_STOCK",
-]
+    "NEW_USER",
+    "FEEDBACK",
+)
 
-VALID_NOTIFICATION_CHANNELS = [
+VALID_NOTIFICATION_CHANNELS = (
     "IN_APP",
     "EMAIL",
     "SMS",
-]
+)
+
+VALID_NOTIFICATION_STATUS = (
+    "READ",
+    "UNREAD",
+)
 
 
 def validate_notification_id(notification_id):
@@ -111,9 +128,9 @@ def validate_notification_status(status):
 
     status = status.upper()
 
-    if status not in ["READ", "UNREAD"]:
+    if status not in VALID_NOTIFICATION_STATUS:
         raise serializers.ValidationError(
-            "Status must be READ or UNREAD."
+            f"Allowed status: {', '.join(VALID_NOTIFICATION_STATUS)}"
         )
 
     return status
