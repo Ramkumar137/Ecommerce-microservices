@@ -27,7 +27,7 @@ import {
 type SettingsTab = "general" | "profile" | "microservices" | "shipping" | "notifications";
 
 function AdminSettings() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [saving, setSaving] = useState(false);
 
@@ -85,10 +85,11 @@ function AdminSettings() {
       setSaving(true);
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      if (activeTab === "profile" && updateUser) {
-        updateUser({
+      if (activeTab === "profile" && updateUserProfile) {
+        await updateUserProfile({
           first_name: profileSettings.firstName,
           last_name: profileSettings.lastName,
+          username: profileSettings.username,
           phone: profileSettings.phone,
           email: profileSettings.email,
         });

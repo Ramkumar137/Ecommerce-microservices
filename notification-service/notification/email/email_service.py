@@ -8,6 +8,18 @@ from .ses_client import SESClient
 class EmailService:
 
     @staticmethod
+    def send_notification_email(to_email, subject, message):
+        return EmailService.send_template_email(
+            to_email=to_email,
+            subject=subject,
+            template_name="email_notification.html",
+            context={
+                "subject": subject,
+                "message": message,
+            },
+        )
+
+    @staticmethod
     def send_template_email(
         to_email,
         subject,

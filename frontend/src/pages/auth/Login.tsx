@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import { GoogleSignInModal } from "@/components/auth/GoogleSignInModal";
+import { getGoogleClientId, triggerGoogleOAuth } from "@/utils/google-auth";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -17,12 +19,13 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
-  const handleGoogleLogin = async () => {
+  const handleSelectGoogleAccount = async (email: string, name: string, avatar?: string) => {
     try {
       setGoogleLoading(true);
-      const googleUser = await loginWithGoogle("customer.google@gmail.com", "Google Customer");
-      toast.success(`Welcome, ${googleUser.first_name}! Authenticated with Google.`);
+      const googleUser = await loginWithGoogle(email, name, avatar);
+      toast.success(`Welcome, ${googleUser.first_name}! Signed in with Google.`);
 
       const redirect = new URLSearchParams(window.location.search).get("redirect");
       if (redirect && redirect.startsWith("/")) {
@@ -33,6 +36,42 @@ function LoginPage() {
     } catch {
       toast.error("Google authentication failed.");
     } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleContinueWithGoogle = async () => {
+    const clientId = getGoogleClientId();
+    if (!clientId) {
+      // Fallback flow: Open interactive GoogleSignInModal
+      setIsGoogleModalOpen(true);
+      return;
+    }
+
+    // Primary OAuth Flow using GIS
+    try {
+      setGoogleLoading(true);
+      await triggerGoogleOAuth({
+        clientId,
+        onSuccess: async ({ email, name, picture, token }) => {
+          const googleUser = await loginWithGoogle(email, name, picture, token);
+          toast.success(`Welcome, ${googleUser.first_name}! Signed in with Google.`);
+
+          const redirect = new URLSearchParams(window.location.search).get("redirect");
+          if (redirect && redirect.startsWith("/")) {
+            navigate({ to: redirect as any });
+          } else {
+            navigate({ to: "/" });
+          }
+          setGoogleLoading(false);
+        },
+        onError: (errorMsg) => {
+          toast.error(errorMsg);
+          setGoogleLoading(false);
+        },
+      });
+    } catch {
+      toast.error("Google authentication failed. Please try again.");
       setGoogleLoading(false);
     }
   };
@@ -187,7 +226,7 @@ function LoginPage() {
         className="w-full font-semibold gap-2"
         type="button"
         disabled={loading || googleLoading}
-        onClick={handleGoogleLogin}
+        onClick={handleContinueWithGoogle}
       >
         {googleLoading ? (
           <Loader2 className="size-4 animate-spin" />
@@ -208,6 +247,12 @@ function LoginPage() {
           Sign up free
         </Link>
       </p>
+
+      <GoogleSignInModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => setIsGoogleModalOpen(false)}
+        onSelectAccount={handleSelectGoogleAccount}
+      />
     </div>
   );
 }

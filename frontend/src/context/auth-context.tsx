@@ -9,7 +9,12 @@ interface AuthContextType {
   loading: boolean;
   login: (data: LoginRequest) => Promise<User>;
   register: (data: RegisterRequest) => Promise<User>;
-  loginWithGoogle: (googleEmail?: string, googleName?: string) => Promise<User>;
+  loginWithGoogle: (
+    googleEmail?: string,
+    googleName?: string,
+    googleAvatar?: string,
+    idToken?: string
+  ) => Promise<User>;
   logout: () => void;
   updateUserProfile: (data: UpdateProfileRequest) => Promise<User>;
   isAuthenticated: boolean;
@@ -82,21 +87,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async (
     googleEmail = "user.google@gmail.com",
-    googleName = "Google Customer"
+    googleName = "Google Customer",
+    googleAvatar?: string,
+    idToken?: string
   ): Promise<User> => {
     const names = googleName.trim().split(" ");
     const firstName = names[0] || "Google";
     const lastName = names.slice(1).join(" ") || "User";
+    const cleanEmail = googleEmail.trim().toLowerCase();
 
     const googleUser: User = {
       user_id: `google_${Date.now()}`,
       id: `google_${Date.now()}`,
-      email: googleEmail,
-      username: googleEmail.split("@")[0] || "google_user",
+      email: cleanEmail,
+      username: cleanEmail.split("@")[0] || "google_user",
       first_name: firstName,
       last_name: lastName,
       role: "CUSTOMER",
       is_active: true,
+      avatar: googleAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     const mockPayload = {
@@ -107,9 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const base64Payload = btoa(JSON.stringify(mockPayload));
-    const mockJwt = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${base64Payload}.google_auth_signature`;
+    const token = idToken || `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${base64Payload}.google_auth_signature`;
 
-    storage.setTokens({ access: mockJwt, refresh: mockJwt });
+    storage.setAccessToken(token);
+    storage.setRefreshToken(token);
     storage.setUser(googleUser);
     setUser(googleUser);
     return googleUser;

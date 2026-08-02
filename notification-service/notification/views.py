@@ -17,6 +17,7 @@ from .serializers import (
 
 from .services import NotificationService
 from notification.email import EmailService
+from .sns_service import SNSService
 
 class NotificationListCreateView(APIView):
 
@@ -60,6 +61,18 @@ class NotificationListCreateView(APIView):
         )
 
         try:
+            payload = SNSService.build_payload(
+                notification_type=serializer.validated_data.get("type"),
+                user_id=serializer.validated_data.get("user_id"),
+                email=request.data.get("email"),
+                channels=[serializer.validated_data.get("channel", "IN_APP")],
+                data={
+                    "message": serializer.validated_data.get("message"),
+                    "title": serializer.validated_data.get("title"),
+                },
+            )
+
+            SNSService.publish(payload)
 
             notification = NotificationService.create_notification(
                 serializer.validated_data

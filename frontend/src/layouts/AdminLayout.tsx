@@ -12,6 +12,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/context/auth-context";
 import { NotificationPopover } from "@/components/common/NotificationPopover";
+import { getUserInitials } from "@/utils/user";
 
 function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { open, setOpen, toggle } = useSidebarState();

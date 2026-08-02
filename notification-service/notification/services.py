@@ -1,199 +1,96 @@
-import os
-import uuid
-from datetime import datetime, timezone
+from __future__ import annotations
 
-from utils.dynamodb import get_table
+from typing import Any, Dict, List
+
+from notification.dynamo_service import DynamoService
+from notification.email_service import EmailService
+from notification.message_builder import MessageBuilder
 
 
 class NotificationService:
-
     @staticmethod
-    def get_table():
+    def handle_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+        role = (payload.get("role") or payload.get("user_role") or "CUSTOMER").upper()
+        notification_type = (payload.get("type") or "").upper()
+        channels = payload.get("channels") or []
 
-        table_name = os.getenv("NOTIFICATION_TABLE")
+        if role not in {"CUSTOMER", "ADMIN"}:
+            raise ValueError("Unsupported role")
 
-        if not table_name:
-            raise ValueError(
-                "NOTIFICATION_TABLE environment variable not set."
+        if not notification_type:
+            raise ValueError("Notification type is required")
+
+        content = MessageBuilder.build(payload)
+
+        if "EMAIL" in channels:
+            email_service = EmailService()
+            email_service.send_email(
+                payload.get("email") or payload.get("emailAddress") or "",
+                content["subject"],
+                content["message"],
+                content["body"],
             )
 
-        return get_table(table_name)
+        if "IN_APP" in channels:
+            DynamoService.store_notification(
+                {
+                    "userId": payload.get("userId") or payload.get("user_id"),
+                    "role": role,
+                    "type": notification_type,
+                    "message": content["message"],
+                }
+            )
 
-    @staticmethod
-    def _timestamp():
-        return datetime.now(timezone.utc).isoformat()
-
-    @staticmethod
-    def _generate_notification_id():
-        return f"not-{uuid.uuid4().hex[:8]}"
-
-    @staticmethod
-    def create_notification(data):
-
-        table = NotificationService.get_table()
-
-        now = NotificationService._timestamp()
-
-        notification = {
-            "notification_id": NotificationService._generate_notification_id(),
-            "user_id": data["user_id"],
-            "type": data["type"],
-            "title": data["title"],
-            "message": data["message"],
-            "channel": data.get("channel", "IN_APP"),
-            "status": "UNREAD",
-            "created_at": now,
-            "read_at": None,
+        return {
+            "status": "SUCCESS",
+            "type": notification_type,
+            "channels": channels,
+            "message": content["message"],
         }
 
-        table.put_item(
-            Item=notification
-        )
-
-        return notification
+    @staticmethod
+    def create_notification(data: Dict[str, Any]) -> Dict[str, Any]:
+        normalized_payload = {
+            "userId": data.get("user_id") or data.get("userId"),
+            "role": (data.get("role") or "CUSTOMER").upper(),
+            "type": (data.get("type") or "").upper(),
+            "channels": [data.get("channel") or "IN_APP"],
+            "email": data.get("email"),
+            "data": data.get("data") or {},
+        }
+        return NotificationService.handle_payload(normalized_payload)
 
     @staticmethod
-    def get_notification(notification_id):
-
-        table = NotificationService.get_table()
-
-        response = table.get_item(
-            Key={
-                "notification_id": notification_id
-            }
-        )
-
-        return response.get("Item")
-
-    @classmethod
-    def get_notifications_by_user(cls, user_id):
-
-        table = cls.get_table()
-
-        items = []
-        last_key = None
-
-        while True:
-
-            kwargs = {}
-
-            if last_key:
-                kwargs["ExclusiveStartKey"] = last_key
-
-            response = table.scan(**kwargs)
-
-            items.extend(
-                response.get("Items", [])
-            )
-
-            last_key = response.get(
-                "LastEvaluatedKey"
-            )
-
-            if not last_key:
-                break
-
-        user_notifications = [
-            item
-            for item in items
-            if item["user_id"] == user_id
-        ]
-
-        user_notifications.sort(
-            key=lambda x: x["created_at"],
-            reverse=True
-        )
-
-        return user_notifications
+    def get_notification(notification_id: str) -> Dict[str, Any]:
+        return DynamoService.get_notification(notification_id)
 
     @staticmethod
-    def mark_as_read(notification_id):
+    def get_notifications_by_user(user_id: str) -> List[Dict[str, Any]]:
+        return NotificationService.fetch_notifications(user_id)
 
-        table = NotificationService.get_table()
+    @staticmethod
+    def fetch_notifications(user_id: str) -> List[Dict[str, Any]]:
+        notifications = DynamoService.fetch_notifications(user_id)
+        return sorted(notifications, key=lambda item: item.get("createdAt", ""), reverse=True)
 
-        notification = NotificationService.get_notification(
-            notification_id
-        )
+    @staticmethod
+    def mark_as_read(notification_id: str) -> Dict[str, Any]:
+        return DynamoService.mark_as_read_by_id(notification_id)
 
-        if not notification:
-            raise ValueError(
-                "Notification not found."
-            )
-
-        now = NotificationService._timestamp()
-
-        table.update_item(
-            Key={
-                "notification_id": notification_id
-            },
-            UpdateExpression="""
-                SET #status=:status,
-                    read_at=:read_at
-            """,
-            ExpressionAttributeNames={
-                "#status": "status"
-            },
-            ExpressionAttributeValues={
-                ":status": "READ",
-                ":read_at": now
-            }
-        )
-
-        notification["status"] = "READ"
-        notification["read_at"] = now
-
-        return notification
-
-    @classmethod
-    def mark_all_as_read(cls, user_id):
-
-        notifications = cls.get_notifications_by_user(
-            user_id
-        )
-
-        count = 0
-
+    @staticmethod
+    def mark_all_as_read(user_id: str) -> Dict[str, Any]:
+        notifications = NotificationService.fetch_notifications(user_id)
+        updated = 0
         for notification in notifications:
-
-            if notification["status"] == "UNREAD":
-
-                cls.mark_as_read(
-                    notification["notification_id"]
-                )
-
-                count += 1
-
-        return {
-            "message": "Notifications marked as read.",
-            "updated": count
-        }
+            if notification.get("status") == "UNREAD":
+                DynamoService.mark_as_read_by_id(notification["notificationId"])
+                updated += 1
+        return {"message": "Notifications marked as read.", "updated": updated}
 
     @staticmethod
-    def delete_notification(notification_id):
-
-        table = NotificationService.get_table()
-
-        notification = NotificationService.get_notification(
-            notification_id
-        )
-
-        if not notification:
-            raise ValueError(
-                "Notification not found."
-            )
-
-        table.delete_item(
-            Key={
-                "notification_id": notification_id
-            }
-        )
-
-        return True
+    def delete_notification(notification_id: str) -> bool:
+        return DynamoService.delete_notification(notification_id)
 
     @staticmethod
-    def health():
-
-        return {
-            "status": "UP",
-            "service": "notification"
-        }
+    def health() -> Dict[str, Any]:
+        return {"status": "UP", "service": "notification"}
