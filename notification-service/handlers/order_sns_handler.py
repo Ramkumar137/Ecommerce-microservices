@@ -23,14 +23,31 @@ def handle_order_created(event):
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data["user_id"],
+                        "user_id": data.get("user_id"),
+                        "email": data.get("email"),
                         "type": "ORDER_CREATED",
                         "title": "Order Placed",
                         "message": (
-                            f"Your order {data['order_id']} "
+                            f"Your order {data.get('order_id')} "
                             f"has been placed successfully."
                         ),
-                        "channel": "IN_APP"
+                        "channels": ["IN_APP", "EMAIL"],
+                        "data": {"orderId": data.get("order_id")},
+                    }
+                )
+
+                # Admin IN_APP notification for every new order
+                NotificationService.create_notification(
+                    {
+                        "user_id": "admin",
+                        "role": "ADMIN",
+                        "type": "ORDER_CREATED",
+                        "title": "New Order Received",
+                        "message": (
+                            f"A new order {data.get('order_id')} has been placed."
+                        ),
+                        "channels": ["IN_APP"],
+                        "data": {"orderId": data.get("order_id")},
                     }
                 )
 
@@ -38,14 +55,16 @@ def handle_order_created(event):
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data["user_id"],
+                        "user_id": data.get("user_id"),
+                        "email": data.get("email"),
                         "type": "ORDER_CONFIRMED",
                         "title": "Order Confirmed",
                         "message": (
-                            f"Your order {data['order_id']} "
+                            f"Your order {data.get('order_id')} "
                             f"has been confirmed."
                         ),
-                        "channel": "IN_APP"
+                        "channels": ["IN_APP", "EMAIL"],
+                        "data": {"orderId": data.get("order_id")},
                     }
                 )
 
@@ -53,14 +72,16 @@ def handle_order_created(event):
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data["user_id"],
+                        "user_id": data.get("user_id"),
+                        "email": data.get("email"),
                         "type": "ORDER_CANCELLED",
                         "title": "Order Cancelled",
                         "message": (
-                            f"Your order {data['order_id']} "
+                            f"Your order {data.get('order_id')} "
                             f"has been cancelled because the payment failed."
                         ),
-                        "channel": "IN_APP"
+                        "channels": ["IN_APP", "EMAIL"],
+                        "data": {"orderId": data.get("order_id")},
                     }
                 )
 

@@ -1,9 +1,12 @@
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from utils.dynamodb import get_table
+
+logger = logging.getLogger(__name__)
 
 
 class DynamoService:
@@ -28,12 +31,18 @@ class DynamoService:
             "notificationId": cls._generate_notification_id(),
             "userId": payload["userId"],
             "type": payload["type"],
+            "title": payload.get("title", ""),
             "message": payload["message"],
             "status": "UNREAD",
             "role": payload.get("role", "CUSTOMER"),
             "createdAt": cls._timestamp(),
         }
         table.put_item(Item=notification)
+        logger.info(
+            "[DynamoDB] Notification stored: %s for userId=%s",
+            notification["notificationId"],
+            notification["userId"],
+        )
         return notification
 
     @classmethod

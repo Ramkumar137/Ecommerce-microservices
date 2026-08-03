@@ -24,14 +24,19 @@ def handle_payment_event(event):
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data.get("order_id"),
+                        "user_id": data.get("user_id"),
+                        "email": data.get("email"),
                         "type": "PAYMENT_SUCCESS",
                         "title": "Payment Successful",
                         "message": (
                             f"Payment received for "
-                            f"Order {data['order_id']}."
+                            f"Order {data.get('order_id')}."
                         ),
-                        "channel": "IN_APP"
+                        "channels": ["IN_APP", "EMAIL"],
+                        "data": {
+                            "orderId": data.get("order_id"),
+                            "amount": str(data.get("amount", "")),
+                        },
                     }
                 )
 
@@ -39,14 +44,18 @@ def handle_payment_event(event):
 
                 NotificationService.create_notification(
                     {
-                        "user_id": data["user_id"],
+                        "user_id": data.get("user_id"),
+                        "email": data.get("email"),
                         "type": "PAYMENT_FAILED",
                         "title": "Payment Failed",
                         "message": (
                             f"Payment failed for "
-                            f"Order {data['order_id']}."
+                            f"Order {data.get('order_id')}."
                         ),
-                        "channel": "IN_APP"
+                        "channels": ["IN_APP", "EMAIL"],
+                        "data": {
+                            "orderId": data.get("order_id"),
+                        },
                     }
                 )
 

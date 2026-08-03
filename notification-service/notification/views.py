@@ -1,61 +1,46 @@
+import logging
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from shared.authentication import JWTAuthentication
-from shared.permissions import (
-    IsCustomer,
-    IsAdmin,
-)
+from shared.permissions import IsCustomer, IsAdmin
 
-from .serializers import (
-    CreateNotificationSerializer,
-)
-
+from .serializers import CreateNotificationSerializer
 from .services import NotificationService
 from notification.email import EmailService
 from .sns_service import SNSService
+
+logger = logging.getLogger(__name__)
+
 
 class NotificationListCreateView(APIView):
 
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
-
         if self.request.method == "POST":
             return [IsAdmin()]
-
         return [IsCustomer()]
 
     def get(self, request):
-
         try:
-
             notifications = NotificationService.get_notifications_by_user(
                 request.user["user_id"]
             )
+            return Response(notifications, status=status.HTTP_200_OK)
 
-            return Response(
-                notifications,
-                status=status.HTTP_200_OK
-            )
-
-        except Exception:
-
+        except Exception as exc:
+            logger.exception("[NotificationListCreateView] GET failed: %s", exc)
             return Response(
                 {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def post(self, request):
-
-        serializer = CreateNotificationSerializer(
-            data=request.data
-        )
-
-        serializer.is_valid(
-            raise_exception=True
-        )
+        serializer = CreateNotificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
             payload = SNSService.build_payload(
@@ -75,23 +60,16 @@ class NotificationListCreateView(APIView):
                 serializer.validated_data
             )
 
-            return Response(
-                notification,
-                status=status.HTTP_201_CREATED
-            )
+            return Response(notification, status=status.HTTP_201_CREATED)
 
         except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        except Exception:
-
+        except Exception as exc:
+            logger.exception("[NotificationListCreateView] POST failed: %s", exc)
             return Response(
                 {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -101,29 +79,19 @@ class NotificationDetailView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request, notification_id):
-
-        notification = NotificationService.get_notification(
-            notification_id
-        )
+        notification = NotificationService.get_notification(notification_id)
 
         if not notification:
-
             return Response(
-                {"error": "Notification not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         if notification["userId"] != request.user["user_id"]:
-
             return Response(
-                {"error": "Permission denied"},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
             )
 
-        return Response(
-            notification,
-            status=status.HTTP_200_OK
-        )
+        return Response(notification, status=status.HTTP_200_OK)
 
 
 class NotificationReadView(APIView):
@@ -132,48 +100,30 @@ class NotificationReadView(APIView):
     permission_classes = [IsCustomer]
 
     def patch(self, request, notification_id):
-
-        notification = NotificationService.get_notification(
-            notification_id
-        )
+        notification = NotificationService.get_notification(notification_id)
 
         if not notification:
-
             return Response(
-                {"error": "Notification not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         if notification["userId"] != request.user["user_id"]:
-
             return Response(
-                {"error": "Permission denied"},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
             )
 
         try:
-
-            notification = NotificationService.mark_as_read(
-                notification_id
-            )
-
-            return Response(
-                notification,
-                status=status.HTTP_200_OK
-            )
+            notification = NotificationService.mark_as_read(notification_id)
+            return Response(notification, status=status.HTTP_200_OK)
 
         except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        except Exception:
-
+        except Exception as exc:
+            logger.exception("[NotificationReadView] PATCH failed: %s", exc)
             return Response(
                 {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -183,23 +133,15 @@ class NotificationReadAllView(APIView):
     permission_classes = [IsCustomer]
 
     def patch(self, request):
-
         try:
+            result = NotificationService.mark_all_as_read(request.user["user_id"])
+            return Response(result, status=status.HTTP_200_OK)
 
-            result = NotificationService.mark_all_as_read(
-                request.user["user_id"]
-            )
-
-            return Response(
-                result,
-                status=status.HTTP_200_OK
-            )
-
-        except Exception:
-
+        except Exception as exc:
+            logger.exception("[NotificationReadAllView] PATCH failed: %s", exc)
             return Response(
                 {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -209,55 +151,34 @@ class NotificationDeleteView(APIView):
     permission_classes = [IsAdmin]
 
     def delete(self, request, notification_id):
-
         try:
-
-            NotificationService.delete_notification(
-                notification_id
-            )
-
-            return Response(
-                status=status.HTTP_204_NO_CONTENT
-            )
+            NotificationService.delete_notification(notification_id)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        except Exception:
-
+        except Exception as exc:
+            logger.exception("[NotificationDeleteView] DELETE failed: %s", exc)
             return Response(
                 {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 class TestEmailView(APIView):
 
     def get(self, request):
-
         EmailService.send_template_email(
             to_email="YOUR_EMAIL@gmail.com",
             subject="HeisernHub Test Email",
             template_name="test_email.html",
-            context={
-                "title": "Test",
-                "name": "Ram"
-            }
+            context={"title": "Test", "name": "Ram"},
         )
+        return Response({"message": "Email sent successfully."})
 
-        return Response({
-            "message": "Email sent successfully."
-        })
 
 class HealthView(APIView):
 
     def get(self, request):
-
-        return Response(
-            NotificationService.health(),
-            status=status.HTTP_200_OK
-        )
+        return Response(NotificationService.health(), status=status.HTTP_200_OK)

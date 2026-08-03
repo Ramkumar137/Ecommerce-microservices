@@ -38,6 +38,10 @@ export const ENV = {
     "VITE_ANALYTICS_API_URL",
     "http://localhost:8000/api/v1/analytics"
   ),
+  NOTIFICATION_API_URL: getEnvVar(
+    "VITE_NOTIFICATION_API_URL",
+    "https://your-notification-api.execute-api.ap-southeast-1.amazonaws.com/api/v1/notifications"
+  ),
   API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT) || 15000,
   MAX_RETRIES: Number(import.meta.env.VITE_MAX_RETRIES) || 2,
 };

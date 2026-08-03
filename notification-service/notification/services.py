@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List
 
 from notification.dynamo_service import DynamoService
 from notification.email.email_service import EmailService
 from notification.message_builder import MessageBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationService:
@@ -13,6 +16,14 @@ class NotificationService:
         role = (payload.get("role") or payload.get("user_role") or "CUSTOMER").upper()
         notification_type = (payload.get("type") or "").upper()
         channels = payload.get("channels") or []
+
+        logger.info(
+            "[NotificationService] handle_payload: type=%s role=%s channels=%s userId=%s",
+            notification_type,
+            role,
+            channels,
+            payload.get("userId") or payload.get("user_id"),
+        )
 
         if role not in {"CUSTOMER", "ADMIN"}:
             raise ValueError("Unsupported role")
@@ -23,11 +34,17 @@ class NotificationService:
         content = MessageBuilder.build(payload)
 
         if "EMAIL" in channels:
-            EmailService.send_notification_email(
-                to_email=payload.get("email") or payload.get("emailAddress") or "",
-                subject=content["subject"],
-                message=content["message"],
-            )
+            to_email = payload.get("email") or payload.get("emailAddress") or ""
+            logger.info("[NotificationService] Sending email to=%s subject=%s", to_email, content["subject"])
+            try:
+                EmailService.send_notification_email(
+                    to_email=to_email,
+                    subject=content["subject"],
+                    message=content["message"],
+                )
+                logger.info("[NotificationService] Email sent successfully to=%s", to_email)
+            except Exception as exc:
+                logger.exception("[NotificationService] Email send failed to=%s error=%s", to_email, exc)
 
         if "IN_APP" in channels:
             DynamoService.store_notification(
@@ -35,6 +52,7 @@ class NotificationService:
                     "userId": payload.get("userId") or payload.get("user_id"),
                     "role": role,
                     "type": notification_type,
+                    "title": payload.get("title", ""),
                     "message": content["message"],
                 }
             )
@@ -48,11 +66,14 @@ class NotificationService:
 
     @staticmethod
     def create_notification(data: Dict[str, Any]) -> Dict[str, Any]:
+        # Support both a single "channel" string and a "channels" list
+        channels = data.get("channels") or [data.get("channel") or "IN_APP"]
         normalized_payload = {
             "userId": data.get("user_id") or data.get("userId"),
             "role": (data.get("role") or "CUSTOMER").upper(),
             "type": (data.get("type") or "").upper(),
-            "channels": [data.get("channel") or "IN_APP"],
+            "title": data.get("title", ""),
+            "channels": channels,
             "email": data.get("email"),
             "data": data.get("data") or {},
         }

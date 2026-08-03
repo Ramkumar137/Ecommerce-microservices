@@ -177,10 +177,16 @@ class PaymentStatusView(APIView):
             )
 
             if payment["status"] == "SUCCESS":
-                SNSClient().publish_payment_success(payment)
+                SNSClient().publish_payment_success({
+                    **payment,
+                    "email": request.user.get("email"),
+                })
 
             elif payment["status"] == "FAILED":
-                SNSClient().publish_payment_failed(payment)
+                SNSClient().publish_payment_failed({
+                    **payment,
+                    "email": request.user.get("email"),
+                })
 
             return Response(
                 payment,

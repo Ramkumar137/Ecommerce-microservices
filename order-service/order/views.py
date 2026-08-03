@@ -52,6 +52,7 @@ class OrderListCreateView(APIView):
                 data={
                     "order_id": order["order_id"],
                     "user_id": order["user_id"],
+                    "email": request.user.get("email"),
                     "items": order["items"],
                     "total_amount": float(order["total_amount"]),
                     "status": order["status"]
