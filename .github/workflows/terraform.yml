@@ -1,0 +1,219 @@
+name: Terraform CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  PYTHON_VERSION: "3.14"
+  TERRAFORM_VERSION: "1.15.8"
+  TF_WORKING_DIR: terraform
+  BUILD_DIR: terraform/build
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  package-lambdas:
+    name: Package Lambda ZIPs
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        service:
+          - auth
+          - product
+          - inventory
+          - cart
+          - order
+          - payment
+          - notification
+          - analytics
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system tools (zip, unzip)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zip unzip
+
+      - name: Install Python dependencies — ${{ matrix.service }}-service
+        run: |
+          SERVICE_DIR="${{ matrix.service }}-service"
+          PACKAGE_DIR="${SERVICE_DIR}/package"
+
+          echo "→ Installing deps for ${SERVICE_DIR}"
+
+          # Remove stale package dir from previous runs
+          rm -rf "${PACKAGE_DIR}"
+          mkdir -p "${PACKAGE_DIR}"
+
+          pip install \
+            --quiet \
+            --upgrade \
+            --target "${PACKAGE_DIR}" \
+            -r "${SERVICE_DIR}/requirements.txt"
+
+      - name: Create terraform/build directory
+        run: mkdir -p ${{ env.BUILD_DIR }}
+
+      - name: Package ${{ matrix.service }}-service → ${{ matrix.service }}.zip
+        run: |
+          SERVICE_DIR="${{ matrix.service }}-service"
+          OUTPUT_ZIP="${{ env.BUILD_DIR }}/${{ matrix.service }}.zip"
+
+          echo "→ Packaging ${SERVICE_DIR} → ${OUTPUT_ZIP}"
+
+          cd "${SERVICE_DIR}"
+
+          zip -r \
+            "../${OUTPUT_ZIP}" \
+            . \
+            --exclude "*.pyc" \
+            --exclude "*/__pycache__/*" \
+            --exclude "__pycache__/*" \
+            --exclude ".env" \
+            --exclude "db.sqlite3" \
+            --exclude "*.zip" \
+            --exclude "*/tests.py" \
+            --exclude ".git/*" \
+            --exclude ".gitignore"
+
+          cd ..
+
+          echo "✓ Created ${OUTPUT_ZIP} ($(du -sh ${OUTPUT_ZIP} | cut -f1))"
+
+      - name: Upload ${{ matrix.service }}.zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zip-${{ matrix.service }}
+          path: ${{ env.BUILD_DIR }}/${{ matrix.service }}.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  terraform-ci:
+    name: Terraform CI
+    runs-on: ubuntu-latest
+    needs: package-lambdas 
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all Lambda ZIP artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lambda-zip-*
+          path: ${{ env.BUILD_DIR }}
+          merge-multiple: true
+
+      - name: List build directory contents
+        run: |
+          echo "── terraform/build/ ──"
+          ls -lh ${{ env.BUILD_DIR }}/
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform version
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform version
+
+      - name: Terraform fmt check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend=false \
+            -input=false
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+        env:
+
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ap-southeast-1
+        run: |
+          terraform plan \
+            -input=false \
+            -no-color \
+            -var="aws_profile=" \
+            -var="aws_region=ap-southeast-1" \
+            -var="project_name=ecommerce" \
+            -var="environment=dev" \
+            -var="lambda_execution_role_arn=${{ secrets.LAMBDA_EXECUTION_ROLE_ARN }}" \
+            -var="jwt_secret_key=${{ secrets.JWT_SECRET_KEY }}" \
+            -out=tfplan.binary 2>&1 | tee tfplan.txt
+
+      - name: Convert plan to JSON
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        if: steps.plan.outcome == 'success'
+        run: terraform show -json tfplan.binary > tfplan.json
+
+      - name: Upload Terraform plan artifacts
+        uses: actions/upload-artifact@v4
+        if: always() 
+        with:
+          name: terraform-plan
+          path: |
+            ${{ env.TF_WORKING_DIR }}/tfplan.txt
+            ${{ env.TF_WORKING_DIR }}/tfplan.json
+            ${{ env.TF_WORKING_DIR }}/tfplan.binary
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Post plan summary
+        if: always()
+        run: |
+          echo "## Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.plan.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "${{ env.TF_WORKING_DIR }}/tfplan.txt" ]; then
+            echo "<details><summary>Show Plan Output</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```hcl' >> $GITHUB_STEP_SUMMARY
+            cat "${{ env.TF_WORKING_DIR }}/tfplan.txt" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "_Plan output not available (credentials not configured)._" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "✗ terraform plan failed — see tfplan.txt artifact for details"
+          exit 1
