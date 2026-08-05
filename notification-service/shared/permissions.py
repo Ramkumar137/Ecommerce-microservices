@@ -9,14 +9,14 @@ class IsAdmin(BasePermission):
 
     def has_permission(self, request, view):
         return (
-            request.user
-            and request.user.get("role") == "ADMIN"
+            request.user is not None
+            and str(request.user.get("role", "")).upper() == "ADMIN"
         )
 
 class IsCustomer(BasePermission):
 
     def has_permission(self, request, view):
         return (
-            request.user
-            and request.user.get("role") == "CUSTOMER"
+            request.user is not None
+            and str(request.user.get("role", "")).upper() == "CUSTOMER"
         )

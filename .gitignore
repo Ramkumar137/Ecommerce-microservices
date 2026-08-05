@@ -63,3 +63,13 @@ zyx_cors_pack/
 main.py
 
 requirements.txt
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+
+build/
+*.zip

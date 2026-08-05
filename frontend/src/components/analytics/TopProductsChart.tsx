@@ -22,13 +22,13 @@ export function TopProductsChart() {
   const isLoading = productLoading || adminLoading || dashLoading;
 
   const chartData = useMemo(() => {
-    let rawProducts: any[] = productData?.products;
+    let rawProducts: any[] = productData?.products ?? [];
 
     if (!rawProducts || !rawProducts.length) {
       if (adminData?.topProducts?.length) {
         rawProducts = adminData.topProducts;
       } else if (dashData?.topSellingProducts?.length || dashData?.top_selling_products?.length) {
-        rawProducts = dashData.topSellingProducts ?? dashData.top_selling_products;
+        rawProducts = dashData.topSellingProducts ?? dashData.top_selling_products ?? [];
       }
     }
 

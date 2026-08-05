@@ -108,8 +108,8 @@ export function GoogleSignInModal({ isOpen, onClose, onSelectAccount }: GoogleSi
               />
             </svg>
             <div>
-              <h3 className="font-semibold text-foreground leading-none">Sign in with Google</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Choose an account to continue to HeisenFlow</p>
+              {/* <h3 className="font-semibold text-foreground leading-none">Sign in with Google</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Choose an account to continue to HeisenFlow</p> */}
             </div>
           </div>
         </div>

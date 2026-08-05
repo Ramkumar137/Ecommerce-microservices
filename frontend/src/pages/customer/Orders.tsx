@@ -330,14 +330,18 @@ function OrderCard({
       setReordering(true);
       for (const it of o.items) {
         await add({
-          product_id: String(it.product_id || it.productId || ""),
+          product_id: String(it.product_id || (it as any).productId || ""),
           name: it.product_name || `Product #${it.product_id}`,
           price: getItemPricing(it).unitPrice,
           stock: 99,
           image_url: it.image_url || "",
           category: "General",
           is_active: true,
-        });
+          description: "",
+          brand: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any);
       }
       toast.success(`Reordered ${o.items.length} items to cart!`);
     } catch {

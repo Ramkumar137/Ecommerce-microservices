@@ -26,7 +26,7 @@ export function OrdersChart() {
       if (recentList && recentList.length) {
         const byDate = new Map<string, number>();
         for (const order of recentList) {
-          const dtStr = order.updatedAt || order.updated_at || order.createdAt || order.created_at;
+          const dtStr = (order as any).updatedAt || (order as any).updated_at || (order as any).createdAt || (order as any).created_at;
           if (!dtStr) continue;
           const dStr = String(dtStr).slice(0, 10);
           byDate.set(dStr, (byDate.get(dStr) ?? 0) + 1);

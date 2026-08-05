@@ -60,12 +60,7 @@ function AuthLayout() {
           </ul>
 
           {/* Decorative motto */}
-          <blockquote className="rounded-xl border border-white/15 bg-black/40 px-5 py-4 backdrop-blur-md">
-            <p className="text-sm italic text-slate-200 leading-relaxed">
-              "Say my name… say my savings."
-            </p>
-            <footer className="mt-1.5 text-xs text-slate-400 font-medium">— HeisenFlow motto</footer>
-          </blockquote>
+          
         </div>
 
         <p className="relative text-xs text-slate-400 z-10">© {new Date().getFullYear()} HeisenFlow. All rights reserved.</p>

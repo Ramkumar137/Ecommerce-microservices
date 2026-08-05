@@ -46,18 +46,19 @@ function relativeTime(iso: string): string {
 export function NotificationPopover() {
   const navigate = useNavigate();
   const { isAdmin, user } = useAuth();
+  const userId = (user as any)?.user_id ?? null;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     try {
       const data = await notificationsApi.getAll();
       setNotifications(data);
     } catch {
       // silently ignore — user may not be authenticated yet
     }
-  }, [user]);
+  }, [userId]);
 
   // Fetch on mount and poll every 30 seconds
   useEffect(() => {

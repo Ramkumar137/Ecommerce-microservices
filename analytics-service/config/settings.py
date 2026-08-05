@@ -93,6 +93,7 @@ CSRF_COOKIE_SECURE = True
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -124,7 +125,3 @@ CORS_ALLOW_HEADERS = [
 ANALYTICS_TABLE = os.getenv("ANALYTICS_TABLE")
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 AWS_PROFILE = os.getenv("AWS_PROFILE")
-
-# SNS / SQS
-SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN")
-SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL")
