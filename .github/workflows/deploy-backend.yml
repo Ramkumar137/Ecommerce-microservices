@@ -1,0 +1,116 @@
+name: deploy-backend
+
+on:
+  workflow_run:
+    workflows:
+      - backend-ci
+    types:
+      - completed
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backend-deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-backend-deployment:
+    name: Prepare backend deployment
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.collect.outputs.services }}
+      has_changes: ${{ steps.collect.outputs.has_changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download backend artifacts from CI run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: '*-lambda-package'
+          path: downloaded-artifacts
+
+      - name: Collect changed services
+        id: collect
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          from pathlib import Path
+          root = Path('downloaded-artifacts')
+          services = []
+          for path in root.glob('*-lambda-package'):
+              if path.is_dir():
+                  services.append(path.name.replace('-lambda-package', ''))
+          services = sorted(set(services))
+          out = os.environ['GITHUB_OUTPUT']
+          with open(out, 'a', encoding='utf-8') as fh:
+              if services:
+                  fh.write(f"has_changes=true\n")
+                  fh.write(f"services={json.dumps(services)}\n")
+              else:
+                  fh.write("has_changes=false\n")
+                  fh.write("services=[]\n")
+          print(f"Discovered services: {services}")
+          PY
+
+  deploy-backend-services:
+    name: Deploy ${{ matrix.service }}
+    needs: prepare-backend-deployment
+    if: needs.prepare-backend-deployment.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ vars.DEPLOY_ENVIRONMENT || 'dev' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.prepare-backend-deployment.outputs.services) }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download artifact for ${{ matrix.service }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: ${{ matrix.service }}-lambda-package
+          path: artifacts
+
+      - name: Deploy Lambda package
+        shell: bash
+        run: |
+          chmod +x scripts/deploy_lambda.sh scripts/verify_deployment.sh
+          archive_path="$(find artifacts -type f -name '*.zip' | head -n 1)"
+          if [ -z "$archive_path" ]; then
+            echo "No ZIP artifact found for ${{ matrix.service }}" >&2
+            exit 1
+          fi
+          ./scripts/deploy_lambda.sh "${{ matrix.service }}" "$archive_path"
+
+      - name: Deployment summary
+        if: success()
+        shell: bash
+        run: |
+          echo "## Backend deployment summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service: ${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Artifact: $(find artifacts -type f -name '*.zip' | head -n 1)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Status: deployed successfully" >> "$GITHUB_STEP_SUMMARY"

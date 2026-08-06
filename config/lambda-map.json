@@ -1,0 +1,10 @@
+{
+  "auth-service": "ram-auth-service",
+  "product-service": "ram-product-service",
+  "inventory-service": "ram-inventory-service",
+  "cart-service": "ram-cart-service",
+  "order-service": "ram-order-service",
+  "payment-service": "ram-payment-service",
+  "analytics-service": "ram-analytics-service",
+  "notification-service": "ram-notification-service"
+}

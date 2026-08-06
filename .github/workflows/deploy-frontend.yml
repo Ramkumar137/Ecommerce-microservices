@@ -1,0 +1,64 @@
+name: deploy-frontend
+
+on:
+  workflow_run:
+    workflows:
+      - frontend-ci
+    types:
+      - completed
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: frontend-deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-frontend:
+    name: Deploy frontend to S3 and CloudFront
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: ${{ vars.DEPLOY_ENVIRONMENT || 'dev' }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download frontend artifact from CI run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: frontend-dist
+          path: frontend-dist
+
+      - name: Deploy frontend build
+        shell: bash
+        run: |
+          chmod +x scripts/deploy_frontend.sh scripts/verify_deployment.sh
+          ./scripts/deploy_frontend.sh frontend-dist "${S3_BUCKET_NAME}" "${CLOUDFRONT_DISTRIBUTION_ID}"
+
+      - name: Deployment summary
+        if: success()
+        shell: bash
+        run: |
+          echo "## Frontend deployment summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Bucket: ${S3_BUCKET_NAME}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Status: deployed successfully" >> "$GITHUB_STEP_SUMMARY"
