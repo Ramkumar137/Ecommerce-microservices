@@ -201,22 +201,6 @@ export function Footer() {
             </ul>
           </div>
         </div>
-
-        {/* Bottom Bar */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t pt-6 sm:flex-row text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} HeisenFlow E-Commerce Inc. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <Lock className="size-3" /> SSL Encrypted
-            </span>
-            <Link to="/" className="hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <Link to="/" className="hover:text-foreground transition-colors">
-              Terms of Service
-            </Link>
-          </div>
-        </div>
       </div>
     </footer>
   );
