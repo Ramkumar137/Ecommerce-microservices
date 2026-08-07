@@ -120,7 +120,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-
+import os
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
