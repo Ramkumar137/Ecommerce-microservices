@@ -13,10 +13,7 @@ export const usersApi = {
       // 1. Primary: Direct DynamoDB Users via Analytics Service or Auth Service
       const res = await apiClient
         .get(`${ANALYTICS_URL}/users/`)
-        .catch(() => apiClient.get(`${AUTH_URL}/users/`))
-        .catch(() => apiClient.get("http://localhost:8000/api/v1/analytics/users/"))
-        .catch(() => apiClient.get("http://localhost:8000/api/v1/auth/users/"))
-        .catch(() => apiClient.get("http://localhost:8000/users/"));
+        .catch(() => apiClient.get(`${AUTH_URL}/users/`));
 
       const raw = Array.isArray(res?.data)
         ? res.data
@@ -82,8 +79,6 @@ export const usersApi = {
   getAdmin(userId: string): Promise<User> {
     return apiClient
       .get(`${AUTH_URL}/users/${userId}/`)
-      .catch(() => apiClient.get(`http://localhost:8000/api/v1/auth/users/${userId}/`))
-      .catch(() => apiClient.get(`http://localhost:8000/users/${userId}/`))
       .then((r) => r.data)
       .catch((err) => {
         console.warn("[Users API getAdmin Error]", err?.response?.status, err?.message);
