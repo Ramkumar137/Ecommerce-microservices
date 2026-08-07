@@ -264,6 +264,7 @@ class HealthView(APIView):
         return Response({
                 "status": "UP",
                 "service": "inventory",
+                "version": "V2",
             },
             status=status.HTTP_200_OK,
         )
