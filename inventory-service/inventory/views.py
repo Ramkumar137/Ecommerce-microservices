@@ -106,7 +106,7 @@ class InventoryDetailView(APIView):
 
         if not item:
             return Response(
-                {"error": "Inventory not found"},
+                {"error": "Out of Stock"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
