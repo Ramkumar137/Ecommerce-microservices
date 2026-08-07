@@ -5,6 +5,7 @@ python-dotenv
 mangum
 bcrypt
 PyJWT
+django-cors-headers
 pytest
 pytest-django
 pytest-mock

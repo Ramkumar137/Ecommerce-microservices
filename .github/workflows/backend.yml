@@ -109,8 +109,11 @@ jobs:
                   sys.exit(1)
               has_mangum = any(n.startswith("mangum/") or n.startswith("mangum-") for n in namelist)
               has_django = any(n.startswith("django/") or n.startswith("django-") for n in namelist)
-              if not (has_mangum and has_django):
-                  print("ERROR: ZIP is missing required Python dependencies (mangum/django)!", file=sys.stderr)
+              has_drf = any(n.startswith("rest_framework/") for n in namelist)
+              has_cors = any(n.startswith("corsheaders/") or n.startswith("django_cors_headers-") for n in namelist)
+
+              if not (has_mangum and has_django and has_drf and has_cors):
+                  print(f"ERROR: ZIP is missing required Python dependencies for {service_name}! (django: {has_django}, mangum: {has_mangum}, drf: {has_drf}, corsheaders: {has_cors})", file=sys.stderr)
                   sys.exit(1)
 
               print(f"SUCCESS: Lambda ZIP artifact structure validated for {service_name}.")

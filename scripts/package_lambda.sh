@@ -135,8 +135,18 @@ with zipfile.ZipFile(output_path, 'r') as zipf:
     if any(name.startswith(f"{service_name}/") or name.startswith("backend/") for name in namelist):
         print(f"ERROR: ZIP contains nested service parent folder for {service_name}!", file=sys.stderr)
         sys.exit(1)
-        
-    print(f"SUCCESS: Package ZIP structure validated for {service_name}. 'lambda_handler.py' present at ZIP root.")
+
+    # 3. Verify essential runtime modules exist in ZIP
+    has_django = any(n.startswith("django/") or n.startswith("django-") for n in namelist)
+    has_mangum = any(n.startswith("mangum/") or n.startswith("mangum-") for n in namelist)
+    has_drf = any(n.startswith("rest_framework/") for n in namelist)
+    has_cors = any(n.startswith("corsheaders/") or n.startswith("django_cors_headers-") for n in namelist)
+
+    if not (has_django and has_mangum and has_drf and has_cors):
+        print(f"ERROR: Missing required dependencies in ZIP for {service_name}! (django: {has_django}, mangum: {has_mangum}, rest_framework: {has_drf}, corsheaders: {has_cors})", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"SUCCESS: Package ZIP structure validated for {service_name}. 'lambda_handler.py' and required dependencies (django, mangum, rest_framework, corsheaders) present at ZIP root.")
 PY
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
