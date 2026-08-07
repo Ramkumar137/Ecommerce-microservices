@@ -1,65 +1,261 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-service_name="${1:?Usage: $0 <service-name> <zip-file> [function-name]}"
-zip_file="${2:?Usage: $0 <service-name> <zip-file> [function-name]}"
-function_name="${3:-}"
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-config_file="${repo_root}/config/lambda-map.json"
+SERVICE_DIR="${1:?Usage: $0 <service-directory>}"
 
-if [ ! -f "$zip_file" ]; then
-  echo "ZIP file not found: $zip_file" >&2
-  exit 1
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Convert relative path to absolute path
+if [[ "${SERVICE_DIR}" != /* ]]; then
+    SERVICE_DIR="${REPO_ROOT}/${SERVICE_DIR}"
 fi
 
-if [ -z "$function_name" ]; then
-  if [ ! -f "$config_file" ]; then
-    echo "Lambda mapping configuration is missing: $config_file" >&2
+SERVICE_DIR="$(cd "${SERVICE_DIR}" && pwd)"
+SERVICE_NAME="$(basename "${SERVICE_DIR}")"
+
+OUTPUT_ZIP="${REPO_ROOT}/${SERVICE_NAME}.zip"
+
+echo "=============================================="
+echo "Packaging Lambda"
+echo "Service : ${SERVICE_NAME}"
+echo "Source  : ${SERVICE_DIR}"
+echo "Output  : ${OUTPUT_ZIP}"
+echo "=============================================="
+
+# --------------------------------------------------
+# Validate required files
+# --------------------------------------------------
+
+if [[ ! -d "${SERVICE_DIR}" ]]; then
+    echo "ERROR: Service directory does not exist"
     exit 1
-  fi
-  function_name="$(python - "$config_file" "$service_name" <<'PY'
-import json
-import sys
-from pathlib import Path
-config_path = Path(sys.argv[1])
-service_name = sys.argv[2]
-with config_path.open(encoding='utf-8') as fh:
-    config = json.load(fh)
-print(config.get(service_name, ''))
-PY
-)"
 fi
 
-if [ -z "$function_name" ] || [[ "$function_name" == YOUR_* ]]; then
-  echo "No valid AWS Lambda function mapping found for service '$service_name'." >&2
-  exit 1
-fi
-
-echo "Deploying $service_name to Lambda function $function_name"
-
-attempt=1
-while [ "$attempt" -le 3 ]; do
-  echo "Update attempt $attempt/3"
-  if aws lambda update-function-code \
-    --function-name "$function_name" \
-    --zip-file "fileb://$zip_file" > /tmp/lambda-update.json 2> /tmp/lambda-update.err; then
-    break
-  fi
-
-  if [ "$attempt" -eq 3 ]; then
-    echo "Lambda deployment failed after 3 attempts." >&2
-    cat /tmp/lambda-update.err >&2
+if [[ ! -f "${SERVICE_DIR}/requirements.txt" ]]; then
+    echo "ERROR: requirements.txt not found"
     exit 1
-  fi
+fi
 
-  echo "Retrying in 10 seconds..."
-  sleep 10
-  attempt=$((attempt + 1))
+if [[ ! -f "${SERVICE_DIR}/lambda_handler.py" ]]; then
+    echo "ERROR: lambda_handler.py not found at service root"
+    exit 1
+fi
+
+# --------------------------------------------------
+# Create clean temporary build directory
+# --------------------------------------------------
+
+BUILD_DIR="$(mktemp -d)"
+
+trap 'rm -rf "${BUILD_DIR}"' EXIT
+
+echo ""
+echo "Build directory:"
+echo "${BUILD_DIR}"
+
+# --------------------------------------------------
+# Install dependencies INTO Lambda package
+# --------------------------------------------------
+
+echo ""
+echo "Installing dependencies..."
+
+python -m pip install \
+    --upgrade pip \
+    --quiet
+
+python -m pip install \
+    -r "${SERVICE_DIR}/requirements.txt" \
+    --target "${BUILD_DIR}" \
+    --no-cache-dir
+
+# --------------------------------------------------
+# Copy application source files
+# --------------------------------------------------
+
+echo ""
+echo "Copying application source..."
+
+cp -R "${SERVICE_DIR}/." "${BUILD_DIR}/"
+
+# --------------------------------------------------
+# Remove files that must NOT be deployed
+# --------------------------------------------------
+
+echo ""
+echo "Cleaning deployment package..."
+
+rm -rf \
+    "${BUILD_DIR}/package" \
+    "${BUILD_DIR}/tests" \
+    "${BUILD_DIR}/.pytest_cache" \
+    "${BUILD_DIR}/.venv" \
+    "${BUILD_DIR}/venv" \
+    "${BUILD_DIR}/node_modules" \
+    "${BUILD_DIR}/htmlcov"
+
+find "${BUILD_DIR}" \
+    -type d \
+    -name "__pycache__" \
+    -prune \
+    -exec rm -rf {} +
+
+find "${BUILD_DIR}" \
+    -type f \
+    \( \
+        -name "*.pyc" \
+        -o -name "*.pyo" \
+        -o -name "*.sqlite3" \
+        -o -name "*.zip" \
+        -o -name ".env" \
+        -o -name ".coverage*" \
+    \) \
+    -delete
+
+# --------------------------------------------------
+# Make sure package directory was not copied
+# --------------------------------------------------
+
+if [[ -d "${BUILD_DIR}/package" ]]; then
+    echo "ERROR: package directory still exists in build"
+    exit 1
+fi
+
+# --------------------------------------------------
+# Verify handler before ZIP
+# --------------------------------------------------
+
+if [[ ! -f "${BUILD_DIR}/lambda_handler.py" ]]; then
+    echo "ERROR: lambda_handler.py missing from build root"
+    exit 1
+fi
+
+# --------------------------------------------------
+# Verify dependencies before ZIP
+# --------------------------------------------------
+
+echo ""
+echo "Checking dependencies..."
+
+REQUIRED_MODULES=(
+    "django"
+    "mangum"
+    "rest_framework"
+    "corsheaders"
+)
+
+for module in "${REQUIRED_MODULES[@]}"; do
+    if [[ ! -e "${BUILD_DIR}/${module}" ]]; then
+        echo "ERROR: Missing dependency: ${module}"
+        exit 1
+    fi
+
+    echo "OK: ${module}"
 done
 
-echo "Waiting for Lambda update to complete..."
-aws lambda wait function-updated --function-name "$function_name" --cli-read-timeout 600 --cli-connect-timeout 60
+# --------------------------------------------------
+# Create ZIP
+# --------------------------------------------------
 
-"$repo_root/scripts/verify_deployment.sh" lambda "$function_name"
+rm -f "${OUTPUT_ZIP}"
 
-echo "Lambda deployment completed successfully."
+echo ""
+echo "Creating ZIP..."
+
+(
+    cd "${BUILD_DIR}"
+    zip -qr "${OUTPUT_ZIP}" .
+)
+
+echo ""
+echo "ZIP created:"
+echo "${OUTPUT_ZIP}"
+
+# --------------------------------------------------
+# Inspect ZIP
+# --------------------------------------------------
+
+echo ""
+echo "=============================================="
+echo "ZIP CONTENT CHECK"
+echo "=============================================="
+
+unzip -l "${OUTPUT_ZIP}" | head -40
+
+# --------------------------------------------------
+# Validate ZIP structure
+# --------------------------------------------------
+
+echo ""
+echo "Validating ZIP..."
+
+python - "${OUTPUT_ZIP}" "${SERVICE_NAME}" <<'PY'
+import sys
+import zipfile
+
+zip_path = sys.argv[1]
+service_name = sys.argv[2]
+
+with zipfile.ZipFile(zip_path, "r") as z:
+    files = z.namelist()
+
+required = [
+    "lambda_handler.py",
+]
+
+for item in required:
+    if item not in files:
+        print(f"ERROR: Missing {item}")
+        sys.exit(1)
+
+# Handler MUST be at root
+if any(
+    name.endswith("/lambda_handler.py")
+    and name != "lambda_handler.py"
+    for name in files
+):
+    print("ERROR: lambda_handler.py exists inside nested directory")
+    sys.exit(1)
+
+# Service folder MUST NOT be the ZIP root
+nested_service = f"{service_name}/"
+
+if any(name.startswith(nested_service) for name in files):
+    print(
+        f"ERROR: ZIP contains nested service directory: {nested_service}"
+    )
+    sys.exit(1)
+
+required_modules = [
+    "django/",
+    "mangum/",
+    "rest_framework/",
+    "corsheaders/",
+]
+
+for module in required_modules:
+    if not any(name.startswith(module) for name in files):
+        print(f"ERROR: Missing dependency: {module}")
+        sys.exit(1)
+
+print("")
+print("SUCCESS")
+print("-----------------------------")
+print("lambda_handler.py : OK")
+print("django             : OK")
+print("mangum             : OK")
+print("rest_framework     : OK")
+print("corsheaders        : OK")
+print("No nested service  : OK")
+print("-----------------------------")
+print(f"Valid Lambda ZIP: {zip_path}")
+PY
+
+echo ""
+echo "=============================================="
+echo "PACKAGE SUCCESS"
+echo "=============================================="
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "artifact_path=${OUTPUT_ZIP}" >> "${GITHUB_OUTPUT}"
+fi
