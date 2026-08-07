@@ -100,7 +100,19 @@ jobs:
         shell: bash
         run: |
           chmod +x scripts/deploy_lambda.sh scripts/verify_deployment.sh
-          archive_path="$(find artifacts -type f -name '*.zip' | head -n 1)"
+          archive_path="artifacts/${{ matrix.service }}-lambda-package/${{ matrix.service }}.zip"
+
+          if [ ! -f "$archive_path" ]; then
+              echo "ERROR: Expected Lambda ZIP not found: $archive_path" >&2
+              echo "Downloaded artifact contents:"
+              find artifacts -type f -print
+              exit 1
+          fi
+
+          echo "Deploying exact artifact:"
+          echo "$archive_path"
+
+          unzip -l "$archive_path"
           if [ -z "$archive_path" ]; then
             echo "No ZIP artifact found for ${{ matrix.service }}" >&2
             exit 1
