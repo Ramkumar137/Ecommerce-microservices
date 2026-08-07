@@ -18,17 +18,37 @@ case "$resource_type" in
       exit 1
     fi
 
-    echo "Verifying Lambda deployment for $function_name"
-    function_details="$(aws lambda get-function --function-name "$function_name" --output json)"
-    last_modified="$(python - <<'PY' "$function_details"
+    echo "Verifying Lambda deployment configuration for $function_name..."
+    config_json="$(aws lambda get-function-configuration --function-name "$function_name" --output json)"
+    
+    python - <<'PY' "$config_json" "$function_name"
 import json
 import sys
+
 payload = json.loads(sys.argv[1])
-print(payload['Configuration']['LastModified'])
+function_name = sys.argv[2]
+
+fn = payload.get("FunctionName", function_name)
+runtime = payload.get("Runtime", "N/A")
+handler = payload.get("Handler", "N/A")
+last_modified = payload.get("LastModified", "N/A")
+state = payload.get("State", "Active")
+state_reason = payload.get("StateReason", "N/A")
+
+print("=== AWS Lambda Function Configuration ===")
+print(f"  • FunctionName : {fn}")
+print(f"  • Runtime      : {runtime}")
+print(f"  • Handler      : {handler}")
+print(f"  • LastModified : {last_modified}")
+print(f"  • State        : {state}")
+print(f"  • StateReason  : {state_reason}")
+
+if not handler or handler == "N/A":
+    print(f"ERROR: Invalid or missing Handler configuration for function '{fn}'!", file=sys.stderr)
+    sys.exit(1)
 PY
-)"
-    echo "Lambda last modified: $last_modified"
     ;;
+
   frontend)
     bucket_name="$resource_name"
     distribution_id="$resource_name_two"
@@ -38,11 +58,11 @@ PY
       exit 1
     fi
 
-    echo "Verifying frontend deployment for bucket $bucket_name"
+    echo "Verifying frontend deployment for bucket $bucket_name..."
     aws s3 ls "s3://$bucket_name" > /dev/null
     invalidation_id="$(aws cloudfront get-invalidation --distribution-id "$distribution_id" --id "$(aws cloudfront list-invalidations --distribution-id "$distribution_id" --query 'InvalidationList.Items[0].Id' --output text)" --query 'Invalidation.Id' --output text 2>/dev/null || true)"
     if [ -n "$invalidation_id" ]; then
-      echo "CloudFront invalidation created: $invalidation_id"
+      echo "CloudFront invalidation status confirmed: $invalidation_id"
     else
       echo "CloudFront invalidation status could not be confirmed; please review the distribution manually."
     fi
@@ -53,4 +73,4 @@ PY
     ;;
 esac
 
-echo "Deployment verification completed."
+echo "Deployment verification completed successfully."

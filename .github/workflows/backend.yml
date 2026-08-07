@@ -76,6 +76,46 @@ jobs:
           chmod +x scripts/package_lambda.sh
           ./scripts/package_lambda.sh "${{ matrix.service }}"
 
+      - name: Validate Lambda artifact
+        shell: bash
+        run: |
+          zip_path="${{ github.workspace }}/${{ matrix.service }}.zip"
+          if [ ! -f "$zip_path" ]; then
+            echo "ERROR: Lambda ZIP package not found at $zip_path" >&2
+            exit 1
+          fi
+          echo "=== Listing ZIP Contents for ${{ matrix.service }}.zip ==="
+          unzip -l "$zip_path"
+
+          echo "=== Verifying Lambda Handler & Root Modules ==="
+          python - <<'PY' "$zip_path" "${{ matrix.service }}"
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path(sys.argv[1])
+          service_name = sys.argv[2]
+
+          with zipfile.ZipFile(zip_path, 'r') as zipf:
+              namelist = zipf.namelist()
+              if not namelist:
+                  print("ERROR: ZIP archive is empty!", file=sys.stderr)
+                  sys.exit(1)
+              if "lambda_handler.py" not in namelist:
+                  print(f"ERROR: 'lambda_handler.py' NOT found at ZIP root for {service_name}!", file=sys.stderr)
+                  sys.exit(1)
+              if any(n.startswith(f"{service_name}/") or n.startswith("backend/") for n in namelist):
+                  print(f"ERROR: ZIP contains nested parent directory wrapper!", file=sys.stderr)
+                  sys.exit(1)
+              has_mangum = any(n.startswith("mangum/") or n.startswith("mangum-") for n in namelist)
+              has_django = any(n.startswith("django/") or n.startswith("django-") for n in namelist)
+              if not (has_mangum and has_django):
+                  print("ERROR: ZIP is missing required Python dependencies (mangum/django)!", file=sys.stderr)
+                  sys.exit(1)
+
+              print(f"SUCCESS: Lambda ZIP artifact structure validated for {service_name}.")
+          PY
+
       - name: Upload Lambda artifact
         uses: actions/upload-artifact@v4
         with:
