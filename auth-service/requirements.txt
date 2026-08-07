@@ -5,3 +5,8 @@ python-dotenv
 mangum
 bcrypt
 PyJWT
+pytest
+pytest-django
+pytest-mock
+coverage
+factory_boy

@@ -3,6 +3,10 @@ djangorestframework
 boto3
 python-dotenv
 mangum
-requests
+bcrypt
 PyJWT
-django-cors-headers
+pytest
+pytest-django
+pytest-mock
+coverage
+factory_boy

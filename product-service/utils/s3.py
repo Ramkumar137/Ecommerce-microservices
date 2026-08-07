@@ -3,10 +3,26 @@ import uuid
 import boto3
 
 
-s3_client = boto3.client(
-    "s3",
-    region_name=os.getenv("AWS_REGION"),
-)
+_s3_client = None
+
+
+def get_s3_client():
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            "s3",
+            region_name=os.getenv("AWS_REGION", "us-east-1"),
+        )
+    return _s3_client
+
+
+class _S3ClientProxy:
+    def upload_fileobj(self, *args, **kwargs):
+        return get_s3_client().upload_fileobj(*args, **kwargs)
+
+
+s3_client = _S3ClientProxy()
+
 
 
 def upload_product_image(file):
