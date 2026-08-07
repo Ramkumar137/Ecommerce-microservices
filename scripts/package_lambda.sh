@@ -23,17 +23,17 @@ trap 'rm -rf "${build_dir}"' EXIT
 
 echo "Packaging ${service_name} using staging directory ${build_dir}..."
 
-# Install production dependencies directly into staging build directory
+# 1. Install production dependencies directly into staging build directory
 if [ -f "${service_dir}/requirements.txt" ]; then
   echo "Installing production dependencies from ${service_dir}/requirements.txt..."
   python -m pip install --no-cache-dir -r "${service_dir}/requirements.txt" -t "${build_dir}" --quiet
 fi
 
-# Copy service contents (not parent folder) into staging build directory
+# 2. Copy service contents (not parent folder) into staging build directory
 echo "Copying service contents into staging directory..."
 cp -R "${service_dir}/." "${build_dir}/"
 
-# Clean up excluded directories and development files inside build_dir before zipping
+# 3. Clean up excluded directories and development files inside build_dir before zipping
 python - <<'PY' "$build_dir"
 import os
 import sys
@@ -72,6 +72,42 @@ for pattern in ["test_*.py", "*_test.py", "*.pyc", "*.pyo", "*.sqlite3", "*.zip"
             file_path.unlink(missing_ok=True)
 PY
 
+# 4. Validate Staging Directory BEFORE creating ZIP
+echo "Validating staging directory BEFORE creating ZIP..."
+python - <<'PY' "$build_dir" "$service_name"
+import os
+import sys
+import re
+from pathlib import Path
+
+raw_dir = sys.argv[1]
+service_name = sys.argv[2]
+
+if os.name == 'nt' and re.match(r'^/([a-zA-Z])/(.*)', raw_dir):
+    raw_dir = re.sub(r'^/([a-zA-Z])/(.*)', r'\1:/\2', raw_dir)
+
+build_dir = Path(raw_dir).resolve()
+
+handler_file = build_dir / "lambda_handler.py"
+if not handler_file.is_file():
+    print(f"ERROR: Staging directory missing 'lambda_handler.py' for {service_name}!", file=sys.stderr)
+    sys.exit(1)
+
+required_dirs = ["django", "corsheaders", "mangum", "rest_framework", "boto3", "botocore"]
+missing = []
+for req in required_dirs:
+    matches = list(build_dir.glob(f"{req}*"))
+    if not matches:
+        missing.append(req)
+
+if missing:
+    print(f"ERROR: Staging directory missing required packages for {service_name}: {missing}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"SUCCESS: Staging directory validated for {service_name}. 'lambda_handler.py' and packages ({', '.join(required_dirs)}) present.")
+PY
+
+# 5. Create Lambda deployment ZIP archive from CONTENTS of staging directory
 echo "Creating Lambda deployment ZIP archive ${output_path}..."
 python - <<'PY' "$build_dir" "$output_path"
 import os
@@ -102,7 +138,7 @@ PY
 
 echo "Created ${output_path}"
 
-# Validate the generated ZIP archive structure
+# 6. Validate the final generated ZIP archive structure
 echo "Validating ZIP root structure for ${output_path}..."
 python - <<'PY' "$output_path" "$service_name"
 import os
@@ -141,12 +177,13 @@ with zipfile.ZipFile(output_path, 'r') as zipf:
     has_mangum = any(n.startswith("mangum/") or n.startswith("mangum-") for n in namelist)
     has_drf = any(n.startswith("rest_framework/") for n in namelist)
     has_cors = any(n.startswith("corsheaders/") or n.startswith("django_cors_headers-") for n in namelist)
+    has_boto3 = any(n.startswith("boto3/") or n.startswith("boto3-") for n in namelist)
 
-    if not (has_django and has_mangum and has_drf and has_cors):
-        print(f"ERROR: Missing required dependencies in ZIP for {service_name}! (django: {has_django}, mangum: {has_mangum}, rest_framework: {has_drf}, corsheaders: {has_cors})", file=sys.stderr)
+    if not (has_django and has_mangum and has_drf and has_cors and has_boto3):
+        print(f"ERROR: Missing required dependencies in ZIP for {service_name}! (django: {has_django}, mangum: {has_mangum}, rest_framework: {has_drf}, corsheaders: {has_cors}, boto3: {has_boto3})", file=sys.stderr)
         sys.exit(1)
 
-    print(f"SUCCESS: Package ZIP structure validated for {service_name}. 'lambda_handler.py' and required dependencies (django, mangum, rest_framework, corsheaders) present at ZIP root.")
+    print(f"SUCCESS: Package ZIP structure validated for {service_name}. 'lambda_handler.py' and required dependencies (django, mangum, rest_framework, corsheaders, boto3) present at ZIP root.")
 PY
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
