@@ -1,22 +1,19 @@
 from rest_framework.permissions import BasePermission
 
 class IsAuthenticatedUser(BasePermission):
-    
     def has_permission(self, request, view):
         return request.user is not None
 
 class IsAdmin(BasePermission):
-
     def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.get("role") == "ADMIN"
-        )
+        if not request.user:
+            return False
+        role = str(request.user.get("role", "")).upper().strip()
+        return role in ["ADMIN", "ADMINISTRATOR"]
 
 class IsCustomer(BasePermission):
-
     def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.get("role") == "CUSTOMER"
-        )
+        if not request.user:
+            return False
+        role = str(request.user.get("role", "")).upper().strip()
+        return role in ["CUSTOMER", "ADMIN", "ADMINISTRATOR"]

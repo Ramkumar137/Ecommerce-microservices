@@ -28,6 +28,7 @@ function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [stockCount, setStockCount] = useState<number>(0);
   const [related, setRelated] = useState<Product[]>([]);
+  const [relatedTitle, setRelatedTitle] = useState<string>("Recommended Products");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,24 +104,54 @@ function ProductDetail() {
         setStockCount(mappedProduct.stock);
       }
 
-      // Map related items
+      // Map related items: Same category first; if no related category, use related brand
       if (Array.isArray(allProducts)) {
-        const otherProds = allProducts
-          .filter((p) => String(p.product_id || (p as any).id) !== String(id))
-          .slice(0, 4)
-          .map((p) => ({
-            product_id: String(p.product_id || (p as any).id),
-            name: p.name,
-            description: p.description || "",
-            brand: p.brand || "Brand",
-            category: p.category || "General",
-            price: Number(p.price || 0),
-            stock: Number(p.stock || 0),
-            image_url: p.image_url || "",
-            is_active: p.is_active ?? true,
-            created_at: p.created_at || "",
-            updated_at: p.updated_at || "",
-          }));
+        const currentCat = (mappedProduct.category || "").trim().toLowerCase();
+        const currentBrand = (mappedProduct.brand || "").trim().toLowerCase();
+        const currentId = String(mappedProduct.product_id || id);
+
+        // 1. Same category products
+        const sameCategory = allProducts.filter((p) => {
+          const pId = String(p.product_id || (p as any).id);
+          const pCat = (p.category || "").trim().toLowerCase();
+          return pId !== currentId && pCat === currentCat;
+        });
+
+        let selected: typeof allProducts = [];
+        let titleText = `Recommended Products (${mappedProduct.category})`;
+
+        if (sameCategory.length > 0) {
+          selected = sameCategory.slice(0, 4);
+          titleText = `Recommended Products (${mappedProduct.category})`;
+        } else {
+          // 2. Fallback to same brand if no products in same category
+          const sameBrand = allProducts.filter((p) => {
+            const pId = String(p.product_id || (p as any).id);
+            const pBrand = (p.brand || "").trim().toLowerCase();
+            return pId !== currentId && pBrand === currentBrand;
+          });
+
+          if (sameBrand.length > 0) {
+            selected = sameBrand.slice(0, 4);
+            titleText = `Recommended Products from ${mappedProduct.brand}`;
+          }
+        }
+
+        setRelatedTitle(titleText);
+
+        const otherProds = selected.map((p) => ({
+          product_id: String(p.product_id || (p as any).id),
+          name: p.name,
+          description: p.description || "",
+          brand: p.brand || "Brand",
+          category: p.category || "General",
+          price: Number(p.price || 0),
+          stock: Number(p.stock || 0),
+          image_url: p.image_url || "",
+          is_active: p.is_active ?? true,
+          created_at: p.created_at || "",
+          updated_at: p.updated_at || "",
+        }));
         setRelated(otherProds);
       }
     } catch (err: any) {
@@ -254,17 +285,24 @@ function ProductDetail() {
 
           {/* Stock availability */}
           <div className="mt-6 flex items-center gap-2 text-sm">
-            {!outOfStock ? (
+            {outOfStock ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
+                <AlertCircle className="size-3.5" /> Out of stock
+              </span>
+            ) : stockCount < 5 ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="size-3.5" /> Only {stockCount} stocks left
+                </span>
+                <span className="text-muted-foreground">· Fast dispatch</span>
+              </>
+            ) : (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                   <Check className="size-3.5" /> In stock ({stockCount} available)
                 </span>
                 <span className="text-muted-foreground">· Ships in 1–2 business days</span>
               </>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
-                Out of stock
-              </span>
             )}
           </div>
 
@@ -373,7 +411,7 @@ function ProductDetail() {
       {/* Related Products */}
       {related.length > 0 && (
         <section className="mt-20 border-t pt-12">
-          <h2 className="text-xl font-semibold tracking-tight">You may also like</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{relatedTitle}</h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {related.map((p) => (
               <ProductCard key={p.product_id} product={p} />

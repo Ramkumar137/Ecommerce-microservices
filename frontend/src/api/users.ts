@@ -10,10 +10,10 @@ const ORDER_URL = ENV.ORDER_API_URL.replace(/\/$/, "");
 export const usersApi = {
   async listAdmin(): Promise<User[]> {
     try {
-      // 1. Primary: Direct DynamoDB Users via Analytics Service or Auth Service
+      // 1. Primary: Direct Users via Auth Service or Analytics Service
       const res = await apiClient
-        .get(`${ANALYTICS_URL}/users/`)
-        .catch(() => apiClient.get(`${AUTH_URL}/users/`));
+        .get(`${AUTH_URL}/users/`)
+        .catch(() => apiClient.get(`${ANALYTICS_URL}/users/`));
 
       const raw = Array.isArray(res?.data)
         ? res.data

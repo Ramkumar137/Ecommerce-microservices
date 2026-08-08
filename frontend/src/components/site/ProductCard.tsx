@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useCart, formatPrice } from "@/context/cart-context";
 import { useAuth } from "@/context/auth-context";
@@ -17,6 +17,7 @@ function getDiscountPercent(price: number): number | null {
 }
 
 export function ProductCard({ product }: { product: Product }) {
+  const navigate = useNavigate();
   const { add, openGuestAuthModal } = useCart();
   const { isAuthenticated, isAdmin } = useAuth();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -31,14 +32,19 @@ export function ProductCard({ product }: { product: Product }) {
     e.stopPropagation();
     toggleWishlist(product);
   };
-  const outOfStock = Number(product.stock) === 0;
-  const lowStock = Number(product.stock) > 0 && Number(product.stock) < 10;
-  const discount = getDiscountPercent(product.price);
-  const originalPrice = discount ? +(product.price / (1 - discount / 100)).toFixed(2) : null;
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleQuickViewClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setQuickViewOpen(true);
+  };
+
+  const handleCardContainerClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) {
+      return;
+    }
+    navigate({ to: "/products/$id", params: { id: productId } });
   };
 
   const handleAddToCart = async (e: React.MouseEvent) => {
@@ -66,11 +72,20 @@ export function ProductCard({ product }: { product: Product }) {
     }
   };
 
+  const outOfStock = Number(product.stock) === 0;
+  const lowStock = Number(product.stock) > 0 && Number(product.stock) < 5;
+  const discount = getDiscountPercent(product.price);
+  const originalPrice = discount ? +(product.price / (1 - discount / 100)).toFixed(2) : null;
+
   return (
     <>
-      <div className="group flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated hover:border-primary/20">
-        <div
-          onClick={handleCardClick}
+      <div
+        onClick={handleCardContainerClick}
+        className="group flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated hover:border-primary/20 cursor-pointer"
+      >
+        <Link
+          to="/products/$id"
+          params={{ id: productId }}
           className="relative block overflow-hidden bg-surface cursor-pointer"
           style={{ height: "200px" }}
         >
@@ -83,11 +98,15 @@ export function ProductCard({ product }: { product: Product }) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
 
-          {/* Quick view hover badge */}
-          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-md backdrop-blur">
+          {/* Quick view hover badge overlay */}
+          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+            <button
+              type="button"
+              onClick={handleQuickViewClick}
+              className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-md backdrop-blur hover:bg-white transition-colors"
+            >
               <Eye className="size-3.5 text-primary" /> Quick View
-            </span>
+            </button>
           </div>
 
           {/* Discount Badge */}
@@ -114,7 +133,7 @@ export function ProductCard({ product }: { product: Product }) {
           {/* Low Stock Badge */}
           {lowStock && !outOfStock && (
             <span className="absolute left-2 bottom-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
-              Only {product.stock} left
+              Only {product.stock} stocks left
             </span>
           )}
 
@@ -126,7 +145,7 @@ export function ProductCard({ product }: { product: Product }) {
               </span>
             </div>
           )}
-        </div>
+        </Link>
 
         <div className="flex flex-1 flex-col justify-between p-3.5">
           <div>
@@ -136,11 +155,11 @@ export function ProductCard({ product }: { product: Product }) {
               <span>{product.category}</span>
             </div>
 
-            <div onClick={handleCardClick} className="mt-1.5 block cursor-pointer">
+            <Link to="/products/$id" params={{ id: productId }} className="mt-1.5 block cursor-pointer">
               <h3 className="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors group-hover:text-primary">
                 {product.name}
               </h3>
-            </div>
+            </Link>
           </div>
 
           <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-3">

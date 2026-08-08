@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice, useCart } from "@/context/cart-context";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
-import { ShoppingCart, Check, ExternalLink, Loader2, Star, Eye } from "lucide-react";
+import { ShoppingCart, Check, ExternalLink, Loader2, Star, Eye, AlertCircle } from "lucide-react";
 import type { Product } from "@/types/product";
 
 export function ProductQuickViewModal({
@@ -92,13 +92,17 @@ export function ProductQuickViewModal({
 
             {/* Stock status */}
             <div className="flex items-center gap-2 text-xs font-medium">
-              {!outOfStock ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  <Check className="size-3.5" /> In stock ({product.stock} available)
-                </span>
-              ) : (
+              {outOfStock ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
                   Out of stock
+                </span>
+              ) : Number(product.stock) < 5 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="size-3.5" /> Only {product.stock} stocks left
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <Check className="size-3.5" /> In stock ({product.stock} available)
                 </span>
               )}
             </div>

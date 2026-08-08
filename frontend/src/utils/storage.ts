@@ -1,3 +1,5 @@
+import { isJwtExpired } from "./session";
+
 const ACCESS_TOKEN = "access_token";
 const ADMIN_ACCESS_TOKEN = "admin_access_token";
 const REFRESH_TOKEN = "refresh_token";
@@ -7,14 +9,18 @@ export const storage = {
   setAccessToken(token: string) {
     localStorage.setItem(ACCESS_TOKEN, token);
     const userStr = localStorage.getItem(USER);
+    let isAdminUser = false;
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
         const role = String(user?.role || "").toUpperCase();
         if (role === "ADMIN" || role === "ADMINISTRATOR") {
-          localStorage.setItem(ADMIN_ACCESS_TOKEN, token);
+          isAdminUser = true;
         }
       } catch {}
+    }
+    if (isAdminUser || localStorage.getItem(ADMIN_ACCESS_TOKEN)) {
+      localStorage.setItem(ADMIN_ACCESS_TOKEN, token);
     }
   },
 
@@ -25,10 +31,14 @@ export const storage = {
 
   getAdminToken(): string | null {
     if (typeof localStorage === "undefined") return null;
-    return (
+    const adminToken =
       localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
       localStorage.getItem("admin_token") ||
-      localStorage.getItem("adminToken") ||
+      localStorage.getItem("adminToken");
+    if (adminToken && !isJwtExpired(adminToken)) {
+      return adminToken;
+    }
+    return (
       localStorage.getItem(ACCESS_TOKEN) ||
       localStorage.getItem("token")
     );
@@ -37,24 +47,35 @@ export const storage = {
   getAccessToken(): string | null {
     if (typeof localStorage === "undefined") return null;
 
-    // If request originates from an admin route, prioritize admin_access_token
+    // If request originates from an admin route, prioritize non-expired admin_access_token
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
       const adminToken =
         localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
         localStorage.getItem("admin_token") ||
         localStorage.getItem("adminToken");
-      if (adminToken) return adminToken;
+      if (adminToken && !isJwtExpired(adminToken)) {
+        return adminToken;
+      }
+      if (adminToken && isJwtExpired(adminToken)) {
+        localStorage.removeItem(ADMIN_ACCESS_TOKEN);
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("adminToken");
+      }
     }
 
-    return (
+    const token =
       localStorage.getItem(ACCESS_TOKEN) ||
       localStorage.getItem("token") ||
       localStorage.getItem("jwt") ||
       localStorage.getItem("authToken") ||
       localStorage.getItem(ADMIN_ACCESS_TOKEN) ||
       sessionStorage.getItem(ACCESS_TOKEN) ||
-      sessionStorage.getItem("token")
-    );
+      sessionStorage.getItem("token");
+
+    if (token && !isJwtExpired(token)) {
+      return token;
+    }
+    return token;
   },
 
   setRefreshToken(token: string) {
@@ -68,6 +89,13 @@ export const storage = {
 
   setUser(user: any) {
     localStorage.setItem(USER, JSON.stringify(user));
+    const role = String(user?.role || "").toUpperCase();
+    const token = localStorage.getItem(ACCESS_TOKEN);
+    if ((role === "ADMIN" || role === "ADMINISTRATOR") && token) {
+      localStorage.setItem(ADMIN_ACCESS_TOKEN, token);
+    } else if (role === "CUSTOMER") {
+      localStorage.removeItem(ADMIN_ACCESS_TOKEN);
+    }
   },
 
   getUser() {
@@ -96,4 +124,4 @@ export const storage = {
       }
     } catch {}
   },
-};
+};

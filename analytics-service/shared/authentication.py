@@ -37,7 +37,7 @@ class JWTAuthentication(BaseAuthentication):
             request_user = {
                 "user_id": payload["user_id"],
                 "email": payload.get("email"),
-                "role": payload.get("role"),
+                "role": str(payload.get("role") or "").upper().strip(),
             }
             return (request_user, None)
 

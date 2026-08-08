@@ -27,13 +27,13 @@ import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as SiteWishlistRouteImport } from './routes/_site.wishlist'
 import { Route as SiteSettingsRouteImport } from './routes/_site.settings'
 import { Route as SiteProfileRouteImport } from './routes/_site.profile'
-import { Route as SiteProductsRouteImport } from './routes/_site.products'
 import { Route as SiteOrdersRouteImport } from './routes/_site.orders'
 import { Route as SiteOrderSuccessRouteImport } from './routes/_site.order-success'
 import { Route as SiteCheckoutRouteImport } from './routes/_site.checkout'
 import { Route as SiteCartRouteImport } from './routes/_site.cart'
 import { Route as Site500RouteImport } from './routes/_site.500'
 import { Route as Site403RouteImport } from './routes/_site.403'
+import { Route as SiteProductsIndexRouteImport } from './routes/_site.products.index'
 import { Route as SiteProductsIdRouteImport } from './routes/_site.products.$id'
 import { Route as SiteProductIdRouteImport } from './routes/_site.product.$id'
 
@@ -126,11 +126,6 @@ const SiteProfileRoute = SiteProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => SiteRoute,
 } as any)
-const SiteProductsRoute = SiteProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => SiteRoute,
-} as any)
 const SiteOrdersRoute = SiteOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -161,10 +156,15 @@ const Site403Route = Site403RouteImport.update({
   path: '/403',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteProductsIndexRoute = SiteProductsIndexRouteImport.update({
+  id: '/products/',
+  path: '/products/',
+  getParentRoute: () => SiteRoute,
+} as any)
 const SiteProductsIdRoute = SiteProductsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => SiteProductsRoute,
+  id: '/products/$id',
+  path: '/products/$id',
+  getParentRoute: () => SiteRoute,
 } as any)
 const SiteProductIdRoute = SiteProductIdRouteImport.update({
   id: '/product/$id',
@@ -183,7 +183,6 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof SiteCheckoutRoute
   '/order-success': typeof SiteOrderSuccessRoute
   '/orders': typeof SiteOrdersRoute
-  '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
   '/wishlist': typeof SiteWishlistRoute
@@ -199,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/product/$id': typeof SiteProductIdRoute
   '/products/$id': typeof SiteProductsIdRoute
+  '/products/': typeof SiteProductsIndexRoute
 }
 export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
@@ -209,7 +209,6 @@ export interface FileRoutesByTo {
   '/checkout': typeof SiteCheckoutRoute
   '/order-success': typeof SiteOrderSuccessRoute
   '/orders': typeof SiteOrdersRoute
-  '/products': typeof SiteProductsRouteWithChildren
   '/profile': typeof SiteProfileRoute
   '/settings': typeof SiteSettingsRoute
   '/wishlist': typeof SiteWishlistRoute
@@ -226,6 +225,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/product/$id': typeof SiteProductIdRoute
   '/products/$id': typeof SiteProductsIdRoute
+  '/products': typeof SiteProductsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -239,7 +239,6 @@ export interface FileRoutesById {
   '/_site/checkout': typeof SiteCheckoutRoute
   '/_site/order-success': typeof SiteOrderSuccessRoute
   '/_site/orders': typeof SiteOrdersRoute
-  '/_site/products': typeof SiteProductsRouteWithChildren
   '/_site/profile': typeof SiteProfileRoute
   '/_site/settings': typeof SiteSettingsRoute
   '/_site/wishlist': typeof SiteWishlistRoute
@@ -256,6 +255,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/_site/product/$id': typeof SiteProductIdRoute
   '/_site/products/$id': typeof SiteProductsIdRoute
+  '/_site/products/': typeof SiteProductsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -270,7 +270,6 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/order-success'
     | '/orders'
-    | '/products'
     | '/profile'
     | '/settings'
     | '/wishlist'
@@ -286,6 +285,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/product/$id'
     | '/products/$id'
+    | '/products/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/analytics'
@@ -296,7 +296,6 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/order-success'
     | '/orders'
-    | '/products'
     | '/profile'
     | '/settings'
     | '/wishlist'
@@ -313,6 +312,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/product/$id'
     | '/products/$id'
+    | '/products'
   id:
     | '__root__'
     | '/_site'
@@ -325,7 +325,6 @@ export interface FileRouteTypes {
     | '/_site/checkout'
     | '/_site/order-success'
     | '/_site/orders'
-    | '/_site/products'
     | '/_site/profile'
     | '/_site/settings'
     | '/_site/wishlist'
@@ -342,6 +341,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/_site/product/$id'
     | '/_site/products/$id'
+    | '/_site/products/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -479,13 +479,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteProfileRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/_site/products': {
-      id: '/_site/products'
-      path: '/products'
-      fullPath: '/products'
-      preLoaderRoute: typeof SiteProductsRouteImport
-      parentRoute: typeof SiteRoute
-    }
     '/_site/orders': {
       id: '/_site/orders'
       path: '/orders'
@@ -528,12 +521,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Site403RouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/products/': {
+      id: '/_site/products/'
+      path: '/products'
+      fullPath: '/products/'
+      preLoaderRoute: typeof SiteProductsIndexRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/_site/products/$id': {
       id: '/_site/products/$id'
-      path: '/$id'
+      path: '/products/$id'
       fullPath: '/products/$id'
       preLoaderRoute: typeof SiteProductsIdRouteImport
-      parentRoute: typeof SiteProductsRoute
+      parentRoute: typeof SiteRoute
     }
     '/_site/product/$id': {
       id: '/_site/product/$id'
@@ -545,18 +545,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface SiteProductsRouteChildren {
-  SiteProductsIdRoute: typeof SiteProductsIdRoute
-}
-
-const SiteProductsRouteChildren: SiteProductsRouteChildren = {
-  SiteProductsIdRoute: SiteProductsIdRoute,
-}
-
-const SiteProductsRouteWithChildren = SiteProductsRoute._addFileChildren(
-  SiteProductsRouteChildren,
-)
-
 interface SiteRouteChildren {
   Site403Route: typeof Site403Route
   Site500Route: typeof Site500Route
@@ -564,12 +552,13 @@ interface SiteRouteChildren {
   SiteCheckoutRoute: typeof SiteCheckoutRoute
   SiteOrderSuccessRoute: typeof SiteOrderSuccessRoute
   SiteOrdersRoute: typeof SiteOrdersRoute
-  SiteProductsRoute: typeof SiteProductsRouteWithChildren
   SiteProfileRoute: typeof SiteProfileRoute
   SiteSettingsRoute: typeof SiteSettingsRoute
   SiteWishlistRoute: typeof SiteWishlistRoute
   SiteIndexRoute: typeof SiteIndexRoute
   SiteProductIdRoute: typeof SiteProductIdRoute
+  SiteProductsIdRoute: typeof SiteProductsIdRoute
+  SiteProductsIndexRoute: typeof SiteProductsIndexRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
@@ -579,12 +568,13 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteCheckoutRoute: SiteCheckoutRoute,
   SiteOrderSuccessRoute: SiteOrderSuccessRoute,
   SiteOrdersRoute: SiteOrdersRoute,
-  SiteProductsRoute: SiteProductsRouteWithChildren,
   SiteProfileRoute: SiteProfileRoute,
   SiteSettingsRoute: SiteSettingsRoute,
   SiteWishlistRoute: SiteWishlistRoute,
   SiteIndexRoute: SiteIndexRoute,
   SiteProductIdRoute: SiteProductIdRoute,
+  SiteProductsIdRoute: SiteProductsIdRoute,
+  SiteProductsIndexRoute: SiteProductsIndexRoute,
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)

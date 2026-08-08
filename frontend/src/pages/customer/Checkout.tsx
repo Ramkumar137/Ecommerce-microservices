@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { toast } from "sonner";
 import { PaymentSuccessModal } from "@/components/common/PaymentSuccessModal";
+import { InlineUpiNotice } from "@/components/common/UpiAppLogos";
 
 function Section({
   step,
@@ -151,9 +152,88 @@ function Checkout() {
 
   const navigate = useNavigate();
 
-  const shippingCost = shippingMethod === "express" ? 1299 : subtotal > 4000 ? 0 : 599;
+  const shippingCost = shippingMethod === "express" ? 89 : subtotal > 4000 ? 0 : 0;
   const tax = subtotal * 0.18;
   const total = subtotal + shippingCost + tax;
+
+  const [paymentData, setPaymentData] = useState({
+    cardNumber: "",
+    cardExpiry: "",
+    cardCvc: "",
+    upiId: "",
+    bankSelect: "SBI",
+  });
+  const [paymentErrors, setPaymentErrors] = useState<{
+    cardNumber?: string;
+    cardExpiry?: string;
+    cardCvc?: string;
+    upiId?: string;
+    bankSelect?: string;
+  }>({});
+
+  const handlePaymentInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setPaymentData((prev) => ({ ...prev, [id]: value }));
+    if (paymentErrors[id as keyof typeof paymentErrors]) {
+      setPaymentErrors((prev) => ({ ...prev, [id]: undefined }));
+    }
+  };
+
+  const validatePaymentCredentials = (): boolean => {
+    const errors: typeof paymentErrors = {};
+    if (paymentMethod === "CARD") {
+      const cleanCard = paymentData.cardNumber.replace(/\s+/g, "").replace(/-/g, "");
+      if (!cleanCard) {
+        errors.cardNumber = "Card number is required";
+      } else if (!/^\d{13,19}$/.test(cleanCard)) {
+        errors.cardNumber = "Card number must be 13 to 19 digits";
+      }
+
+      if (!paymentData.cardExpiry.trim()) {
+        errors.cardExpiry = "Expiry date is required";
+      } else {
+        const match = paymentData.cardExpiry.trim().match(/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/);
+        if (!match) {
+          errors.cardExpiry = "Format must be MM/YY (e.g. 12/28)";
+        } else {
+          const month = parseInt(match[1], 10);
+          let year = parseInt(match[2], 10);
+          if (year < 100) year += 2000;
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentMonth = now.getMonth() + 1;
+          if (year < currentYear || (year === currentYear && month < currentMonth)) {
+            errors.cardExpiry = "Card has expired";
+          }
+        }
+      }
+
+      if (!paymentData.cardCvc.trim()) {
+        errors.cardCvc = "CVC is required";
+      } else if (!/^\d{3,4}$/.test(paymentData.cardCvc.trim())) {
+        errors.cardCvc = "CVC must be 3 or 4 digits";
+      }
+    } else if (paymentMethod === "UPI") {
+      const upi = paymentData.upiId.trim();
+      if (!upi) {
+        errors.upiId = "UPI ID is required";
+      } else if (!/^[\w.-]+@[\w.-]+$/.test(upi)) {
+        errors.upiId = "Invalid UPI ID format (e.g. username@upi or mobile@paytm)";
+      }
+    } else if (paymentMethod === "BANK_TRANSFER") {
+      if (!paymentData.bankSelect) {
+        errors.bankSelect = "Please select a bank";
+      }
+    }
+
+    setPaymentErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      toast.error(firstError || "Please check your payment details.");
+      return false;
+    }
+    return true;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -208,6 +288,13 @@ function Checkout() {
       setActiveStep(2);
       toast.error("Please complete shipping address.");
       return;
+    }
+
+    if (paymentMethod !== "COD") {
+      if (!validatePaymentCredentials()) {
+        setActiveStep(4);
+        return;
+      }
     }
 
     try {
@@ -348,6 +435,10 @@ function Checkout() {
         amount: total,
       });
       setSuccessModalOpen(true);
+      toast.success("Order placed successfully! Redirecting to orders...", { id: "order-placed-toast" });
+      setTimeout(() => {
+        navigate({ to: "/orders" });
+      }, 1500);
     } catch (err: any) {
       console.error("[Unexpected Checkout Error]", err);
       const exactError =
@@ -365,6 +456,10 @@ function Checkout() {
   };
 
   const handlePayNow = async () => {
+    if (!validatePaymentCredentials()) {
+      return;
+    }
+
     setShowPaymentModal(true);
     setPaymentStatus("processing");
 
@@ -546,7 +641,7 @@ function Checkout() {
                     <span className="text-sm font-medium">Standard</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    4–6 business days · {subtotal > 4000 ? "Free" : "₹599"}
+                    4–6 business days · {subtotal > 4000 ? "Free" : "₹0"}
                   </p>
                 </div>
               </label>
@@ -562,7 +657,7 @@ function Checkout() {
                     <Zap className="size-4" />
                     <span className="text-sm font-medium">Express</span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">1–2 business days · ₹1,299</p>
+                  <p className="mt-1 text-xs text-muted-foreground">1–2 business days · ₹89</p>
                 </div>
               </label>
             </RadioGroup>
@@ -633,16 +728,43 @@ function Checkout() {
             {paymentMethod === "CARD" && (
               <div className="mt-4 grid gap-4 sm:grid-cols-2 rounded-lg border bg-muted/20 p-4">
                 <div className="sm:col-span-2">
-                  <Label htmlFor="cn">Card number</Label>
-                  <Input id="cn" placeholder="1234 5678 9012 3456" className="mt-1.5 bg-background" />
+                  <Label htmlFor="cardNumber">Card number</Label>
+                  <Input
+                    id="cardNumber"
+                    placeholder="1234 5678 9012 3456"
+                    className={`mt-1.5 bg-background ${paymentErrors.cardNumber ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    value={paymentData.cardNumber}
+                    onChange={handlePaymentInputChange}
+                  />
+                  {paymentErrors.cardNumber && (
+                    <p className="mt-1 text-xs text-destructive font-medium">{paymentErrors.cardNumber}</p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="exp2">Expiration</Label>
-                  <Input id="exp2" placeholder="MM / YY" className="mt-1.5 bg-background" />
+                  <Label htmlFor="cardExpiry">Expiration</Label>
+                  <Input
+                    id="cardExpiry"
+                    placeholder="MM / YY"
+                    className={`mt-1.5 bg-background ${paymentErrors.cardExpiry ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    value={paymentData.cardExpiry}
+                    onChange={handlePaymentInputChange}
+                  />
+                  {paymentErrors.cardExpiry && (
+                    <p className="mt-1 text-xs text-destructive font-medium">{paymentErrors.cardExpiry}</p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="cvv">CVC</Label>
-                  <Input id="cvv" placeholder="123" className="mt-1.5 bg-background" />
+                  <Label htmlFor="cardCvc">CVC</Label>
+                  <Input
+                    id="cardCvc"
+                    placeholder="123"
+                    className={`mt-1.5 bg-background ${paymentErrors.cardCvc ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    value={paymentData.cardCvc}
+                    onChange={handlePaymentInputChange}
+                  />
+                  {paymentErrors.cardCvc && (
+                    <p className="mt-1 text-xs text-destructive font-medium">{paymentErrors.cardCvc}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -650,10 +772,17 @@ function Checkout() {
             {paymentMethod === "UPI" && (
               <div className="mt-4 rounded-lg border bg-muted/20 p-4">
                 <Label htmlFor="upiId">VPA / UPI ID</Label>
-                <Input id="upiId" placeholder="username@upi or mobile@paytm" className="mt-1.5 bg-background" />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  A payment request will be sent to your UPI app (Google Pay, PhonePe, Paytm, etc.).
-                </p>
+                <Input
+                  id="upiId"
+                  placeholder="username@upi or mobile@paytm"
+                  className={`mt-1.5 bg-background ${paymentErrors.upiId ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  value={paymentData.upiId}
+                  onChange={handlePaymentInputChange}
+                />
+                {paymentErrors.upiId && (
+                  <p className="mt-1 text-xs text-destructive font-medium">{paymentErrors.upiId}</p>
+                )}
+                <InlineUpiNotice />
               </div>
             )}
 
@@ -663,15 +792,20 @@ function Checkout() {
                 <select
                   id="bankSelect"
                   className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={paymentData.bankSelect}
+                  onChange={handlePaymentInputChange}
                 >
                   <option value="SBI">State Bank of India</option>
                   <option value="HDFC">HDFC Bank</option>
-                  <option value="SBI">Indian Bank</option>
+                  <option value="INDIAN">Indian Bank</option>
                   <option value="ICICI">ICICI Bank</option>
                   <option value="AXIS">Axis Bank</option>
                   <option value="KOTAK">Kotak Mahindra Bank</option>
-                  <option value="PNB">Indian Overseas Bank</option>
+                  <option value="PNB">Punjab National Bank</option>
                 </select>
+                {paymentErrors.bankSelect && (
+                  <p className="mt-1 text-xs text-destructive font-medium">{paymentErrors.bankSelect}</p>
+                )}
                 <p className="mt-2 text-xs text-muted-foreground">
                   You will be redirected to your bank's portal to complete netbanking authentication.
                 </p>
@@ -815,7 +949,12 @@ function Checkout() {
       {/* Payment Success Celebration Modal */}
       <PaymentSuccessModal
         open={successModalOpen}
-        onOpenChange={setSuccessModalOpen}
+        onOpenChange={(open) => {
+          setSuccessModalOpen(open);
+          if (!open) {
+            navigate({ to: "/orders" });
+          }
+        }}
         orderId={successOrderDetails?.orderId}
         amount={successOrderDetails?.amount}
       />

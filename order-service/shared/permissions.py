@@ -10,10 +10,10 @@ class IsAuthenticatedUser(BasePermission):
 class IsAdmin(BasePermission):
 
     def has_permission(self, request, view):
-        return (
-            isinstance(request.user, dict)
-            and request.user.get("role") == "ADMIN"
-        )
+        if not isinstance(request.user, dict):
+            return False
+        role = str(request.user.get("role", "")).upper().strip()
+        return role in ["ADMIN", "ADMINISTRATOR"]
 
 
 class IsCustomer(BasePermission):

@@ -22,6 +22,19 @@ def lambda_handler(event, context=None):
     """
     if isinstance(event, dict) and any(k in event for k in ("httpMethod", "requestContext", "rawPath", "path")):
         try:
+            http_method = (event.get("httpMethod") or (event.get("requestContext", {}).get("http", {}).get("method")) or "").upper()
+            if http_method == "OPTIONS":
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                        "Access-Control-Allow-Credentials": "true",
+                    },
+                    "body": "",
+                }
+
             normalized_event = dict(event)
             req_ctx = normalized_event.get("requestContext")
             if isinstance(req_ctx, dict):
@@ -38,12 +51,25 @@ def lambda_handler(event, context=None):
             if "resource" not in normalized_event and "version" not in normalized_event:
                 normalized_event["resource"] = "/{proxy+}"
 
-            return _mangum_handler(normalized_event, context)
+            response = _mangum_handler(normalized_event, context)
+            if isinstance(response, dict):
+                if "headers" not in response or not response["headers"]:
+                    response["headers"] = {}
+                response["headers"]["Access-Control-Allow-Origin"] = "*"
+                response["headers"]["Access-Control-Allow-Headers"] = "*"
+                response["headers"]["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                response["headers"]["Access-Control-Allow-Credentials"] = "true"
+            return response
         except Exception as e:
             logger.error(f"Error handling HTTP request via Mangum: {e}", exc_info=True)
             return {
                 "statusCode": 500,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*",
+                },
                 "body": json.dumps({"error": "Internal Server Error", "message": str(e)}),
             }
 

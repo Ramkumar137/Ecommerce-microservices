@@ -19,9 +19,9 @@ class OrderListCreateView(APIView):
 
     def get(self, request):
 
-        role = request.user.get("role")
+        role = str(request.user.get("role", "")).upper().strip()
 
-        if role == "ADMIN":
+        if role in ["ADMIN", "ADMINISTRATOR"]:
             orders = OrderService.get_all_orders()
         else:
             orders = OrderService.get_orders_by_user(

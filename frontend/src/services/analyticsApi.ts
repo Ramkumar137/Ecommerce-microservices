@@ -27,8 +27,8 @@ const unwrapData = (r: any) => {
 export const analyticsApi = {
   getAdminAnalytics(): Promise<AdminAnalyticsData> {
     return apiClient
-      .get("/api/admin/analytics")
-      .catch(() => apiClient.get(`${BASE}/admin/`))
+      .get(`${BASE}/admin/`)
+      .catch(() => apiClient.get("/api/admin/analytics"))
       .then((r) => {
         const payload = unwrapData(r) || {};
         return {
