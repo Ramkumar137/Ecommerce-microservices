@@ -88,8 +88,12 @@ def lambda_handler(event, context=None):
         }
     except Exception as e:
         logger.error(f"Error executing Lambda direct invocation: {e}", exc_info=True)
+        try:
+            body_str = json.dumps({"success": False, "error": str(e)})
+        except Exception:
+            body_str = '{"success": false, "error": "' + str(e) + '"}'
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"success": False, "error": str(e)}),
+            "body": body_str,
         }

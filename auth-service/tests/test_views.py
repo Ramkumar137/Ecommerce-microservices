@@ -14,7 +14,7 @@ def test_register_view_success(api_client, mocker):
         "last_name": "Doe",
         "username": "janedoe",
         "email": "test@example.com",
-        "phone": "+1234567890",
+        "phone": "1234567890",
         "password": "Password123!",
         "role": "CUSTOMER",
     }
@@ -34,7 +34,7 @@ def test_register_view_value_error(api_client, mocker):
         "last_name": "Doe",
         "username": "janedoe",
         "email": "test@example.com",
-        "phone": "+1234567890",
+        "phone": "1234567890",
         "password": "Password123!",
         "role": "CUSTOMER",
     }
@@ -54,7 +54,7 @@ def test_register_view_unexpected_error(api_client, mocker):
         "last_name": "Doe",
         "username": "janedoe",
         "email": "test@example.com",
-        "phone": "+1234567890",
+        "phone": "1234567890",
         "password": "Password123!",
         "role": "CUSTOMER",
     }

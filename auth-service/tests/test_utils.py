@@ -48,8 +48,10 @@ def test_jwt_service_decode_malformed_token():
 
 
 def test_dynamodb_utils(mocker):
-    mocker.patch("utils.dynamodb._dynamodb_resource", None)
-    mock_resource = mocker.patch("utils.dynamodb.boto3.resource")
+    import utils.dynamodb
+    utils.dynamodb._dynamodb_resource = None
+    mock_resource = mocker.patch("boto3.resource")
+    mocker.patch("os.getenv", return_value=None)
     get_dynamodb_resource()
     assert mock_resource.called
 

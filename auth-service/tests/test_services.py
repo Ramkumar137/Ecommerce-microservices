@@ -26,7 +26,7 @@ def test_register_user_success(mocker):
 
 def test_register_user_duplicate_email(mocker):
     mock_table = mocker.MagicMock()
-    mock_table.query.return_value = {"Items": [{"email": "jane@example.com"}]}
+    mock_table.scan.return_value = {"Items": [{"email": "jane@example.com", "username": "other"}]}
     mocker.patch("authentication.services.get_table", return_value=mock_table)
 
     with pytest.raises(ValueError, match="already exists"):
@@ -50,7 +50,7 @@ def test_login_user_success(mocker):
         "role": "CUSTOMER",
     }
     mock_table = mocker.MagicMock()
-    mock_table.query.return_value = {"Items": [existing_user]}
+    mock_table.scan.return_value = {"Items": [existing_user]}
     mocker.patch("authentication.services.get_table", return_value=mock_table)
 
     tokens = AuthService.login_user("jane@example.com", "Password123!")
@@ -60,7 +60,7 @@ def test_login_user_success(mocker):
 
 def test_login_user_invalid_credentials(mocker):
     mock_table = mocker.MagicMock()
-    mock_table.query.return_value = {"Items": []}
+    mock_table.scan.return_value = {"Items": []}
     mocker.patch("authentication.services.get_table", return_value=mock_table)
 
     with pytest.raises(ValueError, match="Invalid email or password"):
@@ -95,11 +95,12 @@ def test_update_profile_success(mocker):
 
     updated = AuthService.update_profile("usr-123", {"first_name": "Janet"})
     assert updated["first_name"] == "Janet"
-    assert mock_table.put_item.called
+    assert mock_table.update_item.called
 
 
 def test_delete_user(mocker):
     mock_table = mocker.MagicMock()
+    mock_table.get_item.return_value = {"Item": {"user_id": "usr-123"}}
     mocker.patch("authentication.services.get_table", return_value=mock_table)
 
     AuthService.delete_user("usr-123")

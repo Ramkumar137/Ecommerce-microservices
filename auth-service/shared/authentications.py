@@ -11,30 +11,41 @@ class JWTAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
 
-        auth_header = request.headers.get("Authorization")
+        auth_header = None
+        if hasattr(request, "headers") and request.headers and isinstance(request.headers, dict):
+            auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+        if not auth_header and hasattr(request, "META") and isinstance(request.META, dict):
+            auth_header = request.META.get("HTTP_AUTHORIZATION")
+        if not auth_header and hasattr(request, "headers"):
+            try:
+                auth_header = request.headers.get("Authorization")
+            except Exception:
+                pass
+
         token = None
 
-        if auth_header:
+        if auth_header and isinstance(auth_header, str):
             if not auth_header.startswith("Bearer "):
-                raise AuthenticationFailed("Invalid authorization header.")
+                return None
 
             parts = auth_header.split()
 
             if len(parts) != 2 or parts[0] != "Bearer":
-                raise AuthenticationFailed("Invalid authorization header.")
+                return None
 
             token = parts[1]
 
         # Fallback: Extract JWT from cookies if Authorization header is missing
-        if not token and hasattr(request, "COOKIES") and request.COOKIES:
+        cookies = getattr(request, "COOKIES", None)
+        if not token and cookies and isinstance(cookies, dict):
             token = (
-                request.COOKIES.get("access_token")
-                or request.COOKIES.get("admin_access_token")
-                or request.COOKIES.get("token")
-                or request.COOKIES.get("jwt")
+                cookies.get("access_token")
+                or cookies.get("admin_access_token")
+                or cookies.get("token")
+                or cookies.get("jwt")
             )
 
-        if not token or token == "undefined" or token == "null":
+        if not token or token == "undefined" or token == "null" or not isinstance(token, str):
             return None
 
         try:
@@ -45,9 +56,11 @@ class JWTAuthentication(BaseAuthentication):
                 "role": str(payload.get("role") or "").upper().strip(),
             }
 
-            return (request_user, None)
+            return (request_user, token)
 
+        except ValueError as e:
+            raise AuthenticationFailed(str(e))
+        except AuthenticationFailed:
+            raise
         except Exception:
-            raise AuthenticationFailed(
-                "Invalid or expired token."
-            )
+            raise AuthenticationFailed("Invalid token.")

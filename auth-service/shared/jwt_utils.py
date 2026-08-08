@@ -12,12 +12,13 @@ class JWTService:
     @staticmethod
     def get_secret_key():
         import os
-        return (
-            getattr(settings, "JWT_SECRET_KEY", None)
-            or os.getenv("JWT_SECRET_KEY")
-            or os.getenv("SECRET_KEY")
-            or "django-insecure-shared-ecommerce-jwt-secret-key-2026"
+        key = (
+            os.getenv("JWT_SECRET_KEY")
+            or getattr(settings, "JWT_SECRET_KEY", None)
         )
+        if key and key != getattr(settings, "SECRET_KEY", None):
+            return key
+        return "django-insecure-shared-ecommerce-jwt-secret-key-2026"
 
     @staticmethod
     def get_algorithm():
@@ -107,8 +108,8 @@ class JWTService:
 
         return jwt.encode(
             new_payload,
-            settings.JWT_SECRET_KEY,
-            algorithm=settings.JWT_ALGORITHM,
+            JWTService.get_secret_key(),
+            algorithm=JWTService.get_algorithm(),
         )
 
     @staticmethod

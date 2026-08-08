@@ -133,7 +133,7 @@ load_dotenv()
 
 JWT_SECRET_KEY = os.getenv(
     "JWT_SECRET_KEY",
-    os.getenv("SECRET_KEY", "django-insecure-shared-ecommerce-jwt-secret-key-2026")
+    "django-insecure-shared-ecommerce-jwt-secret-key-2026"
 )
 JWT_ALGORITHM = "HS256"
 
