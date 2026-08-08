@@ -64,6 +64,9 @@ main.py
 
 requirements.txt
 
+
+shared_testing/
+
 # Terraform
 **/.terraform/
 *.tfstate
