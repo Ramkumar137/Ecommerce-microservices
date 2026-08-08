@@ -1,87 +1,58 @@
-# Payment Service
+# Payment Service (`payment-service`)
 
 ## Overview
-The Payment Service records payments for orders and tracks payment status and transaction identifiers. It is implemented as a Django REST Framework service backed by DynamoDB.
+The **Payment Service** processes payment transactions for orders. It manages payment initiation, status verification, mock payment gateway integrations, refund workflows, and payment event publishing.
 
-## What this service does
-- Create payments for orders
-- Retrieve payment details by ID
-- Retrieve payments for a specific order
-- Update payment status and transaction ID
-- Delete a payment record
-- Expose a health endpoint
+---
 
-## Tech stack
-- Python
-- Django
-- Django REST Framework
-- boto3 for DynamoDB access
-- Mangum for Lambda deployment
+## Architecture Diagram
 
-## API inventory
+```mermaid
+flowchart TD
+    Client[Client / Frontend / API Gateway] -->|HTTP Requests| Mangum[Mangum ASGI Adapter]
+    Mangum --> PaymentViews[Payment Views]
+    PaymentViews --> JWTAuth[JWT Auth & Role Guard]
+    PaymentViews --> PaymentService[Payment Business Logic]
+    PaymentService --> MockGateway[Mock Gateway Integration]
+    PaymentService --> DynamoDB[(DynamoDB Payments Table)]
+    PaymentService -->|Publish PAYMENT_SUCCESS| SNS[AWS SNS Topic]
+```
+
+---
+
+## Technical Stack
+- **Framework**: Python 3.13 / Django 4.2 / Django REST Framework
+- **Database**: AWS DynamoDB (`ram-payments` / `PAYMENT_TABLE`)
+- **Messaging**: AWS SNS / SQS (`PAYMENT_SNS_TOPIC_ARN`)
+- **Serverless Adapter**: Mangum (ASGI)
+
+---
+
+## API Inventory
+
 Base URL: `/api/v1/payments/`
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/v1/payments/` | List all payments |
-| POST | `/api/v1/payments/` | Create a payment |
-| GET | `/api/v1/payments/<payment_id>/` | Retrieve one payment |
-| DELETE | `/api/v1/payments/<payment_id>/` | Delete one payment |
-| PUT | `/api/v1/payments/<payment_id>/status/` | Update payment status |
-| GET | `/api/v1/payments/order/<order_id>/` | Retrieve a payment for one order |
-| GET | `/api/v1/payments/health/` | Health check |
+| Method | Endpoint | Access Level | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/payments/` | Customer / Admin | List user payments (Customer) or all payments (Admin) |
+| `POST` | `/api/v1/payments/` | Customer | Initiate payment transaction for an order |
+| `GET` | `/api/v1/payments/<payment_id>/` | Authenticated | Retrieve transaction status for a payment |
+| `POST` | `/api/v1/payments/<payment_id>/process/` | Customer | Process mock payment gateway authorization |
+| `POST` | `/api/v1/payments/<payment_id>/refund/` | Admin Only | Process refund for a completed payment |
 
-## Request and response model
-### Create payment
-Request body:
-```json
-{
-  "order_id": "ord-1234abcd",
-  "user_id": "u-1001",
-  "amount": 59.98,
-  "currency": "INR",
-  "payment_method": "UPI"
-}
-```
+---
 
-Response body:
-```json
-{
-  "payment_id": "pay-efgh5678",
-  "order_id": "ord-1234abcd",
-  "user_id": "u-1001",
-  "amount": 59.98,
-  "currency": "INR",
-  "payment_method": "UPI",
-  "status": "PENDING",
-  "transaction_id": "",
-  "gateway": "MockGateway",
-  "created_at": "2024-01-01T12:00:00+00:00",
-  "updated_at": "2024-01-01T12:00:00+00:00"
-}
-```
+## Payment Event & Notification Rules
+- Upon successful payment processing (`PAYMENT_SUCCESS`), `PaymentService` publishes a payment event to SNS.
+- `NotificationService` consumes `PAYMENT_SUCCESS` and records an **In-App Notification** in the Customer's notification center (no email is sent for payment success).
 
-## Allowed payment statuses
-- `PENDING`
-- `SUCCESS`
-- `FAILED`
-- `REFUNDED`
-- `CANCELLED`
+---
 
-## Allowed payment methods
-- `CARD`
-- `UPI`
-- `NET_BANKING`
-- `WALLET`
+## Environment Variables
 
-## Request flow
-1. Client submits a payment request.
-2. Serializer validates the payload.
-3. The service creates a payment record in DynamoDB.
-4. Payment status can later be updated through a dedicated status endpoint.
-
-## Notes and future improvements
-- Integrate with a real payment gateway
-- Add idempotency for repeated payment attempts
-- Add authentication and audit trails
-- Add webhook-style status updates for external payment providers
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PAYMENT_TABLE` | DynamoDB Payments Table Name | `ram-payments` |
+| `PAYMENT_SNS_TOPIC_ARN` | AWS SNS Topic ARN for payment events | `arn:aws:sns:us-east-1:...:ram-payment-topic` |
+| `AWS_REGION` | AWS Region | `us-east-1` |
+| `JWT_SECRET_KEY` | JWT Verification Key | `django-insecure-shared-ecommerce-jwt-secret-key-2026` |

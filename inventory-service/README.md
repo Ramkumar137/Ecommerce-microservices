@@ -1,81 +1,59 @@
-# Inventory Service
+# Inventory Service (`inventory-service`)
 
 ## Overview
-The Inventory Service tracks stock availability for products. It maintains both total stock and reserved stock, and it exposes endpoints for CRUD operations plus reserve/release workflows.
+The **Inventory Service** tracks stock availability, reserved stock, and available stock for products across the platform. It handles stock reservation during checkout, stock releases on cancellation, low stock monitoring, and SNS notification alerts to Admin.
 
-## What this service does
-- Create and manage inventory records per product
-- Track `stock`, `reserved_stock`, and `available_stock`
-- Reserve stock for checkout flows
-- Release reserved stock when an operation is cancelled or completed
-- Expose a health endpoint for monitoring
+---
 
-## Tech stack
-- Python 3
-- Django
-- Django REST Framework
-- boto3 for DynamoDB access
-- Mangum for Lambda integration
+## Architecture Diagram
 
-## API inventory
+```mermaid
+flowchart TD
+    Client[Client / Frontend / API Gateway] -->|HTTP Requests| Mangum[Mangum ASGI Adapter]
+    OrderService[Order Service] -->|Reserve/Release SQS/SNS| SQS[AWS SQS Queue]
+    SQS --> LambdaConsumer[Inventory SQS Consumer]
+    Mangum --> InventoryViews[Inventory Views]
+    LambdaConsumer --> InventoryService[Inventory Service Logic]
+    InventoryViews --> InventoryService
+    InventoryService --> DynamoDB[(DynamoDB Inventory Table)]
+    InventoryService -->|Low Stock Alert| SNS[AWS SNS / Notification Service]
+```
+
+---
+
+## Technical Stack
+- **Framework**: Python 3.13 / Django 4.2 / Django REST Framework
+- **Database**: AWS DynamoDB (`ram-inventory` / `INVENTORY_TABLE`)
+- **Messaging**: AWS SQS / SNS Event Integrations
+- **Serverless Adapter**: Mangum (ASGI)
+
+---
+
+## API Inventory
+
 Base URL: `/api/v1/inventory/`
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/v1/inventory/` | List all inventory records |
-| POST | `/api/v1/inventory/` | Create an inventory record |
-| GET | `/api/v1/inventory/<product_id>/` | Retrieve inventory for one product |
-| PUT | `/api/v1/inventory/<product_id>/` | Update inventory for one product |
-| DELETE | `/api/v1/inventory/<product_id>/` | Delete inventory for one product |
-| PATCH | `/api/v1/inventory/<product_id>/reserve/` | Reserve stock |
-| PATCH | `/api/v1/inventory/<product_id>/release/` | Release reserved stock |
-| GET | `/api/v1/inventory/health/` | Health check |
+| Method | Endpoint | Access Level | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/inventory/` | Admin Only | List all product inventory records |
+| `POST` | `/api/v1/inventory/` | Admin Only | Create initial inventory for a product |
+| `GET` | `/api/v1/inventory/<product_id>/` | Authenticated | Retrieve inventory status for a product |
+| `PUT` | `/api/v1/inventory/<product_id>/` | Admin Only | Update total stock and reserved stock |
+| `PATCH` | `/api/v1/inventory/<product_id>/reserve/` | System / Internal | Reserve stock for checkout flow |
+| `PATCH` | `/api/v1/inventory/<product_id>/release/` | System / Internal | Release reserved stock on order cancel |
+| `DELETE` | `/api/v1/inventory/<product_id>/` | Admin Only | Delete an inventory record |
 
-## Request and response model
-### Create inventory
-Request body:
-```json
-{
-  "product_id": "p-abc12345",
-  "stock": 100,
-  "reserved_stock": 10
-}
-```
+---
 
-Response body:
-```json
-{
-  "product_id": "p-abc12345",
-  "stock": 100,
-  "reserved_stock": 10,
-  "available_stock": 90,
-  "created_at": "2024-01-01T12:00:00+00:00",
-  "updated_at": "2024-01-01T12:00:00+00:00"
-}
-```
+## Low Stock Notification Flow
+When `available_stock` falls below the configured threshold (e.g. `< 10` units), `InventoryService` publishes a `LOW_STOCK` event targeting the Admin role in-app notification center via `NotificationService`.
 
-### Reserve stock
-Request body:
-```json
-{
-  "quantity": 5
-}
-```
+---
 
-## Business rules
-- `reserved_stock` cannot exceed `stock`
-- Reserve operations fail if the requested quantity is larger than `available_stock`
-- Release operations fail if the requested quantity is larger than `reserved_stock`
+## Environment Variables
 
-## Request flow
-1. Request reaches an APIView.
-2. Serializer validates the body.
-3. Service layer checks business rules.
-4. DynamoDB item is created, updated, or queried.
-5. A JSON response is returned.
-
-
-## Notes and future improvements
-- Add atomic conditional updates for concurrent stock changes
-- Add event-driven integration with order and payment services
-- Add pagination and filtering options
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `INVENTORY_TABLE` | DynamoDB Inventory Table Name | `ram-inventory` |
+| `AWS_REGION` | AWS Region | `us-east-1` |
+| `JWT_SECRET_KEY` | JWT Verification Key | `django-insecure-shared-ecommerce-jwt-secret-key-2026` |

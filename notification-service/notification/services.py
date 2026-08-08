@@ -12,10 +12,39 @@ logger = logging.getLogger(__name__)
 
 class NotificationService:
     @staticmethod
+    def resolve_channels(notification_type: str, role: str) -> List[str]:
+        n_type = (notification_type or "").upper().strip()
+        n_role = (role or "CUSTOMER").upper().strip()
+
+        if n_role in {"ADMIN", "ADMINISTRATOR"}:
+            if n_type in {"LOW_STOCK", "NEW_USER_LOGIN", "NEW_USER", "ORDER_CREATED", "NEW_ORDER"}:
+                return ["IN_APP"]
+            if n_type == "FORGOT_PASSWORD":
+                return ["EMAIL"]
+            return ["IN_APP"]
+
+        if n_type in {"ORDER_CREATED", "NEW_ORDER"}:
+            return ["IN_APP", "EMAIL"]
+        elif n_type in {"PAYMENT_SUCCESS", "PAYMENT_CONFIRMED"}:
+            return ["IN_APP"]
+        elif n_type in {"ORDER_UPDATED", "ORDER_STATUS_UPDATE", "ORDER_CONFIRMED", "ORDER_SHIPPED", "ORDER_DELIVERED", "ORDER_CANCELLED"}:
+            return ["IN_APP"]
+        elif n_type in {"WELCOME", "USER_REGISTERED"}:
+            return ["EMAIL"]
+        elif n_type == "FORGOT_PASSWORD":
+            return ["EMAIL"]
+
+        return ["IN_APP"]
+
+    @staticmethod
     def handle_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-        role = (payload.get("role") or payload.get("user_role") or "CUSTOMER").upper()
-        notification_type = (payload.get("type") or "").upper()
-        channels = payload.get("channels") or []
+        role = (payload.get("role") or payload.get("user_role") or "CUSTOMER").upper().strip()
+        if role == "ADMINISTRATOR":
+            role = "ADMIN"
+        notification_type = (payload.get("type") or "").upper().strip()
+        channels = payload.get("channels")
+        if not channels:
+            channels = NotificationService.resolve_channels(notification_type, role)
 
         logger.info(
             "[NotificationService] handle_payload: type=%s role=%s channels=%s userId=%s",
@@ -66,12 +95,18 @@ class NotificationService:
 
     @staticmethod
     def create_notification(data: Dict[str, Any]) -> Dict[str, Any]:
-        # Support both a single "channel" string and a "channels" list
-        channels = data.get("channels") or [data.get("channel") or "IN_APP"]
+        role = (data.get("role") or "CUSTOMER").upper().strip()
+        notification_type = (data.get("type") or "").upper().strip()
+        channels = data.get("channels")
+        if not channels:
+            if data.get("channel"):
+                channels = [data.get("channel")]
+            else:
+                channels = NotificationService.resolve_channels(notification_type, role)
         normalized_payload = {
             "userId": data.get("user_id") or data.get("userId"),
-            "role": (data.get("role") or "CUSTOMER").upper(),
-            "type": (data.get("type") or "").upper(),
+            "role": role,
+            "type": notification_type,
             "title": data.get("title", ""),
             "channels": channels,
             "email": data.get("email"),

@@ -1,66 +1,48 @@
-# Cart Service
+# Cart Service (`cart-service`)
 
 ## Overview
-The Cart Service manages per-user shopping carts. It stores cart items in DynamoDB and supports adding, updating, removing, and clearing cart contents.
+The **Cart Service** manages customer shopping carts. It provides endpoints to view cart items, add items, update quantities, remove items, and clear the cart after checkout.
 
-## What this service does
-- Return a user’s cart contents
-- Add items to a cart
-- Update item quantities
-- Remove a single item from the cart
-- Clear an entire cart
-- Expose a health endpoint
+---
 
-## Tech stack
-- Python
-- Django
-- Django REST Framework
-- boto3 for DynamoDB access
-- Mangum for Lambda deployment
+## Architecture Diagram
 
-## API inventory
+```mermaid
+flowchart TD
+    Client[Client / Frontend / API Gateway] -->|HTTP Requests| Mangum[Mangum ASGI Adapter]
+    Mangum --> CartViews[Cart Views]
+    CartViews --> JWTAuth[JWT Authentication]
+    CartViews --> CartService[Cart Business Logic Service]
+    CartService --> DynamoDB[(DynamoDB Carts Table)]
+```
+
+---
+
+## Technical Stack
+- **Framework**: Python 3.13 / Django 4.2 / Django REST Framework
+- **Database**: AWS DynamoDB (`ram-carts` / `CART_TABLE`)
+- **Serverless Adapter**: Mangum (ASGI)
+
+---
+
+## API Inventory
+
 Base URL: `/api/v1/cart/`
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/v1/cart/` | Admin endpoint to list all carts |
-| GET | `/api/v1/cart/<user_id>/` | Get a single user’s cart |
-| POST | `/api/v1/cart/<user_id>/items/` | Add an item to a cart |
-| PUT | `/api/v1/cart/<user_id>/items/<product_id>/` | Update item quantity |
-| DELETE | `/api/v1/cart/<user_id>/items/<product_id>/delete/` | Remove one item |
-| DELETE | `/api/v1/cart/<user_id>/clear/` | Clear the cart |
-| GET | `/api/v1/cart/health/` | Health check |
+| Method | Endpoint | Access Level | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/cart/` | Customer Only | Retrieve active shopping cart |
+| `POST` | `/api/v1/cart/items/` | Customer Only | Add product item to shopping cart |
+| `PUT` | `/api/v1/cart/items/<product_id>/` | Customer Only | Update item quantity in cart |
+| `DELETE` | `/api/v1/cart/items/<product_id>/` | Customer Only | Remove single item from cart |
+| `POST` | `/api/v1/cart/clear/` | Customer Only | Clear all items from cart |
 
-## Request and response model
-### Add item to cart
-Request body:
-```json
-{
-  "product_id": "p-abc12345",
-  "quantity": 2
-}
-```
+---
 
-Response body:
-```json
-{
-  "user_id": "u-1001",
-  "product_id": "p-abc12345",
-  "quantity": 2,
-  "created_at": "2024-01-01T12:00:00+00:00",
-  "updated_at": "2024-01-01T12:00:00+00:00"
-}
-```
+## Environment Variables
 
-## Request flow
-1. The request hits the appropriate cart APIView.
-2. The serializer validates the payload.
-3. The service layer queries or updates the DynamoDB table.
-4. The response is returned to the client.
-
-
-## Notes and future improvements
-- Add authentication and user ownership checks
-- Add cart expiration or cleanup policies
-- Add item price snapshots for order generation
-- Move to a more event-driven cart lifecycle
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `CART_TABLE` | DynamoDB Carts Table Name | `ram-carts` |
+| `AWS_REGION` | AWS Region | `us-east-1` |
+| `JWT_SECRET_KEY` | JWT Verification Key | `django-insecure-shared-ecommerce-jwt-secret-key-2026` |

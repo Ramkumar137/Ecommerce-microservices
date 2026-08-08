@@ -1,64 +1,66 @@
-# Product Service
+# Product Service (`product-service`)
 
 ## Overview
-The Product Service is a Django REST Framework microservice for managing a product catalog. It stores products directly in DynamoDB and exposes CRUD endpoints for catalog operations.
+The **Product Service** is a Django REST Framework microservice for managing the product catalog. It handles product creation, retrieval, updates, deletion, category filtering, and inventory status visibility.
 
-## What this service does
-- Create, list, retrieve, update, and delete products
-- Validate product payloads before saving
-- Expose a health endpoint for deployment checks
-- Run as a Lambda-compatible ASGI app via Mangum
+---
 
-## Tech stack
-- Python
-- Django
-- Django REST Framework
-- boto3 for DynamoDB access
-- Mangum for AWS Lambda integration
+## Architecture Diagram
 
-## API inventory
-Base URL: `/api/`
+```mermaid
+flowchart TD
+    Client[Client / Frontend / API Gateway] -->|HTTP Requests| Mangum[Mangum ASGI Adapter]
+    Mangum --> Django[Django REST Framework]
+    Django --> AuthGuard[JWT Authentication & Role Guard]
+    Django --> ProductViews[Product Catalog Views]
+    ProductViews --> ProductService[Product Service Logic]
+    ProductService --> DynamoDB[(DynamoDB Products Table)]
+```
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/v1/products/` | List all products |
-| POST | `/api/v1/products/` | Create a product |
-| GET | `/api/v1/products/<product_id>/` | Retrieve one product |
-| PUT | `/api/v1/products/<product_id>/` | Update one product |
-| DELETE | `/api/v1/products/<product_id>/` | Delete one product |
-| GET | `/api/v1/products/health` | Health check |
+---
 
-## Request and response model
-### Create or update product
-Request body:
+## Technical Stack
+- **Framework**: Python 3.13 / Django 4.2 / Django REST Framework
+- **Database**: AWS DynamoDB (`ram-products` / `PRODUCT_TABLE`)
+- **Serverless Adapter**: Mangum (ASGI)
+
+---
+
+## API Inventory
+
+Base URL: `/api/v1/products/`
+
+| Method | Endpoint | Access Level | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/products/` | Public | List all available products |
+| `POST` | `/api/v1/products/` | Admin Only | Create a new product entry |
+| `GET` | `/api/v1/products/<product_id>/` | Public | Retrieve single product details |
+| `PUT` | `/api/v1/products/<product_id>/` | Admin Only | Update an existing product |
+| `DELETE` | `/api/v1/products/<product_id>/` | Admin Only | Delete a product |
+| `GET` | `/api/v1/products/health` | Public | Health check endpoint |
+
+---
+
+## Data Models & Payloads
+
+### Create/Update Product Payload
 ```json
 {
-  "name": "Wireless Mouse",
-  "price": 29.99,
-  "stock": 120,
-  "category": "Electronics"
+  "name": "Wireless Mechanical Keyboard",
+  "description": "RGB Backlit, Bluetooth & 2.4G",
+  "price": 89.99,
+  "stock": 50,
+  "category": "Electronics",
+  "image_url": "https://example.com/keyboard.jpg"
 }
 ```
 
-Response body:
-```json
-{
-  "product_id": "p-abc12345",
-  "name": "Wireless Mouse",
-  "price": 29.99,
-  "stock": 120,
-  "category": "Electronics"
-}
-```
+---
 
-## Request flow
-1. Client sends a request to a Django APIView.
-2. DRF serializer validates the payload.
-3. The view calls the DynamoDB helper and table operations.
-4. Results are returned as JSON responses.
+## Environment Variables
 
-## Notes and future improvements
-- Add authentication and authorization for admin-only operations
-- Add pagination for large catalogs
-- Add product search and filtering by category
-- Add integration tests against a local or mocked DynamoDB environment
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PRODUCT_TABLE` | DynamoDB Products Table Name | `ram-products` |
+| `AWS_REGION` | AWS Region | `us-east-1` |
+| `JWT_SECRET_KEY` | JWT Secret Key for token validation | `django-insecure-shared-ecommerce-jwt-secret-key-2026` |

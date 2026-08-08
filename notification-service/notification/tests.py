@@ -23,9 +23,9 @@ class NotificationServiceTests(TestCase):
         self.assertIn("ORD-1001", content["message"])
         self.assertIn("order", content["body"].lower())
 
-    @patch("notification.services.EmailService.send_email")
+    @patch("notification.services.EmailService.send_notification_email")
     @patch("notification.services.DynamoService.store_notification")
-    def test_handle_payload_sends_email_and_stores_in_app(self, store_notification, send_email):
+    def test_handle_payload_sends_email_and_stores_in_app(self, store_notification, send_notification_email):
         payload = {
             "userId": "user-123",
             "role": "CUSTOMER",
@@ -39,7 +39,7 @@ class NotificationServiceTests(TestCase):
 
         self.assertEqual(result["status"], "SUCCESS")
         self.assertEqual(result["channels"], ["EMAIL"])
-        send_email.assert_called_once()
+        send_notification_email.assert_called_once()
         store_notification.assert_not_called()
 
     @patch("notification.services.DynamoService.fetch_notifications")

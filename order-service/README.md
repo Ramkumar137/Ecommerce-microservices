@@ -1,90 +1,64 @@
-# Order Service
+# Order Service (`order-service`)
 
 ## Overview
-The Order Service creates and manages customer orders. It records order items, totals, and status transitions in DynamoDB.
+The **Order Service** manages customer order creation, order tracking, order status updates, and order history. It coordinates stock reservations with Inventory Service and triggers SNS notifications for order placement and status updates.
 
-## What this service does
-- Create new orders from user and item data
-- Retrieve one order or all orders
-- List orders by user
-- Update order status
-- Delete an order
-- Expose a health endpoint
+---
 
-## Tech stack
-- Python 3
-- Django
-- Django REST Framework
-- boto3 for DynamoDB access
-- Mangum for Lambda deployment
+## Architecture Diagram
 
-## API inventory
+```mermaid
+flowchart TD
+    Client[Client / Frontend / API Gateway] -->|HTTP Requests| Mangum[Mangum ASGI Adapter]
+    Mangum --> OrderViews[Order Views]
+    OrderViews --> JWTAuth[JWT Authentication & Role Permission]
+    OrderViews --> OrderService[Order Business Logic]
+    OrderService --> DynamoDB[(DynamoDB Orders Table)]
+    OrderService -->|Publish ORDER_CREATED| SNS[AWS SNS Topic]
+    SNS --> SQS[Notification SQS Queue]
+    SQS --> NotificationService[Notification Service]
+```
+
+---
+
+## Technical Stack
+- **Framework**: Python 3.13 / Django 4.2 / Django REST Framework
+- **Database**: AWS DynamoDB (`ram-orders` / `ORDER_TABLE`)
+- **Messaging**: AWS SNS / SQS (`ORDER_SNS_TOPIC_ARN`)
+- **Serverless Adapter**: Mangum (ASGI)
+
+---
+
+## API Inventory
+
 Base URL: `/api/v1/orders/`
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/v1/orders/` | List all orders |
-| POST | `/api/v1/orders/` | Create an order |
-| GET | `/api/v1/orders/<order_id>/` | Retrieve one order |
-| DELETE | `/api/v1/orders/<order_id>/` | Delete one order |
-| PATCH | `/api/v1/orders/<order_id>/status/` | Update order status |
-| GET | `/api/v1/orders/user/<user_id>/` | List orders for one user |
-| GET | `/api/v1/orders/health/` | Health check |
+| Method | Endpoint | Access Level | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/orders/` | Customer / Admin | List user orders (Customer) or all orders (Admin) |
+| `POST` | `/api/v1/orders/` | Customer | Create a new order from cart items |
+| `GET` | `/api/v1/orders/<order_id>/` | Customer / Admin | Retrieve detailed view of a specific order |
+| `PATCH` | `/api/v1/orders/<order_id>/status/` | Admin Only | Update order status (Pending, Shipped, Delivered, Cancelled) |
+| `DELETE` | `/api/v1/orders/<order_id>/` | Admin Only | Cancel/Delete an order |
 
-## Request and response model
-### Create order
-Request body:
-```json
-{
-  "user_id": "u-1001",
-  "items": [
-    {
-      "product_id": "p-abc12345",
-      "product_name": "Wireless Mouse",
-      "unit_price": 29.99,
-      "quantity": 2
-    }
-  ]
-}
-```
+---
 
-Response body:
-```json
-{
-  "order_id": "ord-1234abcd",
-  "user_id": "u-1001",
-  "status": "PENDING",
-  "items": [
-    {
-      "product_id": "p-abc12345",
-      "product_name": "Wireless Mouse",
-      "unit_price": 29.99,
-      "quantity": 2,
-      "subtotal": 59.98
-    }
-  ],
-  "total_amount": 59.98,
-  "created_at": "2024-01-01T12:00:00+00:00",
-  "updated_at": "2024-01-01T12:00:00+00:00"
-}
-```
+## Order Placement & Event Flow
+1. Customer submits order details at checkout.
+2. `OrderService` reserves inventory items via `InventoryService`.
+3. Order item details and status (`PENDING`) are persisted in DynamoDB.
+4. `ORDER_CREATED` event is published to `ORDER_SNS_TOPIC_ARN`.
+5. `NotificationService` consumes event:
+   - Stores **In-App Notification** for Customer and Admin popover.
+   - Sends **Order Confirmation Email** to Customer.
 
-## Allowed order statuses
-- `PENDING`
-- `CONFIRMED`
-- `PROCESSING`
-- `SHIPPED`
-- `DELIVERED`
-- `CANCELLED`
+---
 
-## Request flow
-1. Client submits order data to the APIView.
-2. Serializer validates the payload and item structure.
-3. The service builds a snapshot of each item and computes totals.
-4. The order is stored in DynamoDB and returned to the client.
+## Environment Variables
 
-## Notes and future improvements
-- Add payment and inventory integration hooks
-- Add order history and audit fields
-- Add event-driven order status updates
-- Add pagination and filtering for large order sets
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `ORDER_TABLE` | DynamoDB Orders Table Name | `ram-orders` |
+| `ORDER_SNS_TOPIC_ARN` | AWS SNS Topic ARN for order events | `arn:aws:sns:us-east-1:...:ram-order-topic` |
+| `AWS_REGION` | AWS Region | `us-east-1` |
+| `JWT_SECRET_KEY` | JWT Verification Key | `django-insecure-shared-ecommerce-jwt-secret-key-2026` |

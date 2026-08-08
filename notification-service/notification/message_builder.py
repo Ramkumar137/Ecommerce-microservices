@@ -112,6 +112,20 @@ class MessageBuilder:
             },
         }
 
+        templates["ADMIN"]["NEW_USER_LOGIN"] = {
+            "subject": "New user login",
+            "message": f"User {customer_name} ({user_id}) logged into the application.",
+            "body": "A user login activity was recorded.",
+        }
+        templates["ADMIN"]["NEW_ORDER"] = templates["ADMIN"]["ORDER_CREATED"]
+        templates["CUSTOMER"]["ORDER_PLACED"] = templates["CUSTOMER"]["ORDER_CREATED"]
+        templates["CUSTOMER"]["ORDER_UPDATED"] = {
+            "subject": "Order status updated",
+            "message": f"Status for order {order_id} has been updated.",
+            "body": "Check your Orders page for updated tracking information.",
+        }
+        templates["CUSTOMER"]["ORDER_STATUS_UPDATE"] = templates["CUSTOMER"]["ORDER_UPDATED"]
+
         template = templates.get(role, {}).get(notification_type)
         if template is None:
             template = {

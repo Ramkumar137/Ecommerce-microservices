@@ -20,13 +20,7 @@ class AuthService:
         Return DynamoDB users table.
         """
 
-        table_name = os.getenv("USER_TABLE")
-
-        if not table_name:
-            raise ValueError(
-                "USER_TABLE environment variable not set."
-            )
-
+        table_name = os.getenv("USER_TABLE") or os.getenv("USERS_TABLE") or "ram-users"
         return get_table(table_name)
 
     @staticmethod

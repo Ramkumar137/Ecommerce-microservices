@@ -159,9 +159,24 @@ class ProfileView(APIView):
                 status=status.HTTP_200_OK
             )
 
-        except Exception:
+        except ValueError:
+            # Fallback to user claims in token if record not found in DynamoDB
+            req_user = request.user if isinstance(request.user, dict) else {}
+            fallback_user = {
+                "user_id": req_user.get("user_id", "usr-unknown"),
+                "email": req_user.get("email", ""),
+                "first_name": req_user.get("first_name", "User"),
+                "last_name": req_user.get("last_name", ""),
+                "username": req_user.get("username", req_user.get("email", "")),
+                "role": req_user.get("role", "CUSTOMER"),
+                "is_active": True,
+            }
+            return Response(fallback_user, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            traceback.print_exc()
             return Response(
-                {"error": "Internal server error"},
+                {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -186,9 +201,16 @@ class ProfileView(APIView):
                 status=status.HTTP_200_OK
             )
 
-        except Exception:
+        except ValueError as e:
             return Response(
-                {"error": "Internal server error"},
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            traceback.print_exc()
+            return Response(
+                {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -203,9 +225,16 @@ class ProfileView(APIView):
                 status=status.HTTP_204_NO_CONTENT
             )
 
-        except Exception:
+        except ValueError as e:
             return Response(
-                {"error": "Internal server error"},
+                {"error": str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            traceback.print_exc()
+            return Response(
+                {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

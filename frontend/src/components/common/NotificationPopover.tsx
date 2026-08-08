@@ -8,6 +8,7 @@ import {
   Package,
   CheckCircle2,
   AlertTriangle,
+  UserCheck,
   X,
   CheckCheck,
 } from "lucide-react";
@@ -30,6 +31,8 @@ function getIcon(type: string) {
     return <CreditCard className="size-4 text-blue-500 shrink-0" />;
   if (t === "LOW_STOCK" || t === "INVENTORY_LOW")
     return <AlertTriangle className="size-4 text-amber-500 shrink-0" />;
+  if (t.includes("USER"))
+    return <UserCheck className="size-4 text-indigo-500 shrink-0" />;
   return <CheckCircle2 className="size-4 text-primary shrink-0" />;
 }
 
@@ -110,6 +113,7 @@ export function NotificationPopover() {
       ? type.startsWith("ORDER") ? "/admin/orders"
         : type.startsWith("PAYMENT") ? "/admin/payments"
         : type === "LOW_STOCK" || type === "INVENTORY_LOW" ? "/admin/inventory"
+        : type.includes("USER") ? "/admin/users"
         : null
       : type.startsWith("ORDER") || type.startsWith("PAYMENT") ? "/orders"
         : null;
