@@ -127,3 +127,6 @@ flowchart LR
 4. **Analytics Overview**: Admin Dashboard fetches real-time aggregations (total revenue, daily order volumes, active customers) via `AnalyticsService`.
 
 ---
+### Here's deployed URL
+https://staging.d2kxah9t26y8zi.amplifyapp.com/
+https://d1o0yv23okm5t4.cloudfront.net/
