@@ -1,6 +1,6 @@
-# Serverless E-Commerce Microservices Platform
+# E-Commerce Microservices Platform
 
-A modern, scalable, serverless microservices e-commerce application built with **React / Vite / TailwindCSS**, **Python 3.13 / Django REST Framework**, **AWS Lambda**, **AWS DynamoDB**, **AWS SQS/SNS**, and **Terraform**.
+A modern, scalable, serverless microservices e-commerce application built with **Python 3.14 / Django REST Framework**, **React / Vite / TailwindCSS**,  **AWS Lambda**, **AWS DynamoDB**, **AWS SQS/SNS**, and **Terraform**.
 
 ---
 
@@ -97,14 +97,14 @@ flowchart LR
 
 | Audience | Trigger Event | In-App Notification | Email Notification |
 | :--- | :--- | :---: | :---: |
-| **Admin** | Low Stock Alert (`LOW_STOCK`) | ✅ YES | ❌ NO |
-| **Admin** | New User Login (`NEW_USER_LOGIN`) | ✅ YES | ❌ NO |
-| **Admin** | New Order Placed (`ORDER_CREATED`) | ✅ YES | ❌ NO |
-| **Customer** | Order Placed (`ORDER_CREATED`) | ✅ YES | ✅ YES |
-| **Customer** | Payment Successful (`PAYMENT_SUCCESS`) | ✅ YES | ❌ NO |
-| **Customer** | Order Status Update (`ORDER_UPDATED`) | ✅ YES | ❌ NO |
-| **Customer** | New User Welcome (`WELCOME`) | ❌ NO | ✅ YES |
-| **Both** | Password Reset (`FORGOT_PASSWORD`) | ❌ NO | ✅ YES |
+| **Admin** | Low Stock Alert (`LOW_STOCK`) | YES | NO |
+| **Admin** | New User Login (`NEW_USER_LOGIN`) | YES | NO |
+| **Admin** | New Order Placed (`ORDER_CREATED`) | YES | NO |
+| **Customer** | Order Placed (`ORDER_CREATED`) | YES | YES |
+| **Customer** | Payment Successful (`PAYMENT_SUCCESS`) | YES | NO |
+| **Customer** | Order Status Update (`ORDER_UPDATED`) | YES | NO |
+| **Customer** | New User Welcome (`WELCOME`) | NO | YES |
+| **Both** | Password Reset (`FORGOT_PASSWORD`) | NO | YES |
 
 ---
 
@@ -127,50 +127,3 @@ flowchart LR
 4. **Analytics Overview**: Admin Dashboard fetches real-time aggregations (total revenue, daily order volumes, active customers) via `AnalyticsService`.
 
 ---
-
-## Getting Started Locally
-
-### Prerequisites
-- Node.js 18+ & npm
-- Python 3.13 & `virtualenv`
-- Git
-
-### 1. Clone & Setup Virtual Environment
-```bash
-git clone https://github.com/Ramkumar137/Ecommerce-microservices.git
-cd Ecommerce-microservices
-
-# Activate virtualenv
-.\venv\Scripts\activate
-```
-
-### 2. Run Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Open `http://localhost:5173` in your browser.
-
-### 3. Run Microservice Test Suites
-```bash
-# Auth Service tests
-pytest auth-service/tests/
-
-# Notification Service tests
-python notification-service/manage.py test
-```
-
----
-
-## Deployment & Verification
-
-Deploy Lambda functions using the deployment scripts:
-
-```bash
-# Package and deploy all Lambda functions
-bash scripts/deploy_all.sh
-
-# Run end-to-end validation across all services
-python scripts/test_final_validation.py
-```
