@@ -128,5 +128,6 @@ flowchart LR
 
 ---
 ### Here's deployed URL
-https://staging.d2kxah9t26y8zi.amplifyapp.com/
-https://d1o0yv23okm5t4.cloudfront.net/
+1. https://staging.d2kxah9t26y8zi.amplifyapp.com/
+
+2. https://d1o0yv23okm5t4.cloudfront.net/
